@@ -7,22 +7,11 @@ export default function EditNote() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { getNote, updateNote } = useNotes();
   const current = getNote(id!);
-  if (!current)
-    return (
-      <View style={{ padding: 16 }}>
-        <Text>Não encontrado.</Text>
-      </View>
-    );
+  if (!current) return <View className="p-4"><Text>Não encontrado.</Text></View>;
 
   return (
-    <View style={{ flex: 1, padding: 16 }}>
-      <NoteForm
-        initial={current}
-        onSubmit={async (note) => {
-          await updateNote(note);
-          router.back();
-        }}
-      />
+    <View className="flex-1 p-4 bg-white">
+      <NoteForm initial={current} onSubmit={async (note) => { await updateNote(note); router.back(); }} />
     </View>
   );
 }
