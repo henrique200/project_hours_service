@@ -1,37 +1,56 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
   TextInput,
   Pressable,
   Alert,
-  StyleSheet,
   ScrollView,
 } from "react-native";
 import Checkbox from "expo-checkbox";
+
+import { Labeled } from "./Label";
+
 import { Note } from "../context/NotesContext";
 
-const ACTIONS = [
-  "Entregou publicações em mãos para o morador",
-  "Deixou carta na caixinha da casa do morador",
-  "Deixou publicação na casa do morador porém não falou com ele (Caixinha)",
-];
+import {
+  A_ABRIU_ESTUDO,
+  A_REV_2_SF,
+  ACTIONS_ALL,
+  NoteFormProps,
+  REVISITA_ACTIONS,
+} from "@/constants/noteActions";
 
-export type NoteFormProps = {
-  initial?: Partial<Note>;
-  onSubmit: (note: Note) => void;
-};
+import {
+  hhmmToHours,
+  hoursToHHmm,
+  toDisplayDate,
+  toIsoDate,
+} from "@/Functions";
 
 export default function NoteForm({ initial, onSubmit }: NoteFormProps) {
-  const [date, setDate] = useState(
-    initial?.date ?? new Date().toISOString().slice(0, 10)
+  const todayIso = useMemo(() => {
+    const d = new Date();
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
+      2,
+      "0"
+    )}-${String(d.getDate()).padStart(2, "0")}`;
+    return iso;
+  }, []);
+
+  const [dateDisplay, setDateDisplay] = useState(
+    initial?.date ? toDisplayDate(initial.date) : toDisplayDate(todayIso)
   );
-  const [hours, setHours] = useState(String(initial?.hours ?? ""));
+  const [hoursHHmm, setHoursHHmm] = useState(
+    initial?.hours !== undefined ? hoursToHHmm(initial.hours) : ""
+  );
+
   const [locationNotes, setLocationNotes] = useState(
     initial?.locationNotes ?? ""
   );
   const [actions, setActions] = useState<string[]>(initial?.actions ?? []);
-  const [revisitaEnabled, setRevisitaEnabled] = useState(
+
+  const [revisitaEnabled, setRevisitaEnabled] = useState<boolean>(
     initial?.revisita?.enabled ?? false
   );
   const [nome, setNome] = useState(initial?.revisita?.nome ?? "");
@@ -39,34 +58,69 @@ export default function NoteForm({ initial, onSubmit }: NoteFormProps) {
     initial?.revisita?.numeroCasa ?? ""
   );
   const [celular, setCelular] = useState(initial?.revisita?.celular ?? "");
-  const [dataRev, setDataRev] = useState(initial?.revisita?.data ?? date);
+  const [dataRevDisplay, setDataRevDisplay] = useState(
+    initial?.revisita?.data
+      ? toDisplayDate(initial.revisita.data)
+      : toDisplayDate(initial?.date ?? todayIso)
+  );
   const [horaRev, setHoraRev] = useState(initial?.revisita?.horario ?? "");
 
+  useEffect(() => {
+    const hasRevisita = actions.some((a) => REVISITA_ACTIONS.has(a));
+    if (hasRevisita && !revisitaEnabled) setRevisitaEnabled(true);
+  }, [actions, revisitaEnabled]);
+
+  useEffect(() => {
+    if (actions.includes(A_REV_2_SF) && !actions.includes(A_ABRIU_ESTUDO)) {
+      setActions((prev) => [...prev, A_ABRIU_ESTUDO]);
+    }
+  }, [actions]);
+
   function toggleAction(label: string) {
-    setActions((prev) =>
-      prev.includes(label) ? prev.filter((a) => a !== label) : [...prev, label]
-    );
+    setActions((prev) => {
+      const exists = prev.includes(label);
+      if (label === A_ABRIU_ESTUDO && prev.includes(A_REV_2_SF) && exists) {
+        return prev;
+      }
+      const next = exists ? prev.filter((a) => a !== label) : [...prev, label];
+      return next;
+    });
   }
 
   function validate() {
-    const h = Number(hours);
-    if (Number.isNaN(h) || h < 0 || h > 24) {
+    const iso = toIsoDate(dateDisplay);
+    if (!iso) {
+      Alert.alert("Data inválida", "Use o formato dd/MM/yyyy.");
+      return false;
+    }
+
+    const h = hhmmToHours(hoursHHmm);
+    if (h === null) {
       Alert.alert(
         "Horas inválidas",
-        "As horas devem ser um número entre 0 e 24."
+        "Use o formato HH:mm (ex.: 02:30) e valores entre 00:00 e 24:00."
       );
       return false;
     }
+
     if (revisitaEnabled) {
+      const dataRevIso = toIsoDate(dataRevDisplay);
       if (
         !nome.trim() ||
         !numeroCasa.trim() ||
-        !dataRev.trim() ||
+        !dataRevIso ||
         !horaRev.trim()
       ) {
         Alert.alert(
           "Revisita",
-          "Quando marcar 'Sim', nome, nº da casa, data e horário são obrigatórios."
+          "Quando marcar 'Sim', nome, nº da casa, data (dd/MM/yyyy) e horário (HH:mm) são obrigatórios."
+        );
+        return false;
+      }
+      if (!/^(\d{1,2}):([0-5]\d)$/.test(horaRev)) {
+        Alert.alert(
+          "Revisita",
+          "O horário combinado deve estar no formato HH:mm (ex.: 14:30)."
         );
         return false;
       }
@@ -76,10 +130,14 @@ export default function NoteForm({ initial, onSubmit }: NoteFormProps) {
 
   function handleSave() {
     if (!validate()) return;
+
+    const dateIso = toIsoDate(dateDisplay)!;
+    const hoursNumber = hhmmToHours(hoursHHmm)!;
+
     const built: Note = {
       id: initial?.id ?? String(Date.now()),
-      date,
-      hours: Number(hours),
+      date: dateIso,
+      hours: hoursNumber,
       locationNotes: locationNotes.trim() || undefined,
       actions,
       revisita: revisitaEnabled
@@ -88,34 +146,35 @@ export default function NoteForm({ initial, onSubmit }: NoteFormProps) {
             nome: nome.trim(),
             numeroCasa: numeroCasa.trim(),
             celular: celular.trim() || undefined,
-            data: dataRev,
-            horario: horaRev,
+            data: toIsoDate(dataRevDisplay)!,
+            horario: horaRev.trim(),
           }
         : { enabled: false },
     };
+
     onSubmit(built);
   }
 
   return (
-    <ScrollView style={{ flex: 1 }}>
-      <View style={{ gap: 14 }}>
-        <Labeled label="Data (yyyy-mm-dd)">
+    <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+      <View className="gap-y-[14px] p-1">
+        <Labeled label="Data (dd/MM/yyyy)">
           <TextInput
-            value={date}
-            onChangeText={setDate}
-            placeholder="2025-09-03"
-            style={styles.inputStyle}
+            value={dateDisplay}
+            onChangeText={setDateDisplay}
+            placeholder="31/12/2025"
+            className="border border-[#ccc] rounded-lg px-3 py-[10px]"
             inputMode="text"
           />
         </Labeled>
 
-        <Labeled label="Horas trabalhadas (0–24)">
+        <Labeled label="Horas trabalhadas (HH:mm)">
           <TextInput
-            value={hours}
-            onChangeText={setHours}
-            placeholder="Ex.: 3.5"
-            style={styles.inputStyle}
-            keyboardType="decimal-pad"
+            value={hoursHHmm}
+            onChangeText={setHoursHHmm}
+            placeholder="02:30"
+            className="border border-[#ccc] rounded-lg px-3 py-[10px]"
+            keyboardType="numbers-and-punctuation"
           />
         </Labeled>
 
@@ -124,37 +183,35 @@ export default function NoteForm({ initial, onSubmit }: NoteFormProps) {
             value={locationNotes}
             onChangeText={setLocationNotes}
             placeholder="Ex.: casa azul, portão fechado"
-            style={[styles.inputStyle, { minHeight: 64 }]}
+            className="border border-[#ccc] rounded-lg px-3 py-[10px] min-h-16"
             multiline
           />
         </Labeled>
 
-        <Text style={{ fontWeight: "600", fontSize: 16 }}>
-          Ações realizadas
-        </Text>
-        <View style={{ gap: 10 }}>
-          {ACTIONS.map((label) => (
+        <Text className="text-base font-semibold">Ações realizadas</Text>
+        <View className="gap-[10px]">
+          {ACTIONS_ALL.map((label, index) => (
             <Pressable
-              key={label}
+              className="flex-row items-center gap-2"
+              key={index}
               onPress={() => toggleAction(label)}
-              style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
             >
               <Checkbox
                 value={actions.includes(label)}
                 onValueChange={() => toggleAction(label)}
               />
-              <Text style={{ flex: 1 }}>{label}</Text>
+              <Text className="flex-1">{label}</Text>
             </Pressable>
           ))}
         </View>
 
-        <Text style={{ fontWeight: "600", fontSize: 16, marginTop: 8 }}>
+        <Text className="font-semibold text-base mt-2">
           Marcou alguma revisita?
         </Text>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+        <View className="flex-row items-center gap-x-3">
           <Pressable
             onPress={() => setRevisitaEnabled(!revisitaEnabled)}
-            style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+            className="flex-row items-center gap-x-2"
           >
             <Checkbox
               value={revisitaEnabled}
@@ -166,27 +223,19 @@ export default function NoteForm({ initial, onSubmit }: NoteFormProps) {
         </View>
 
         {revisitaEnabled && (
-          <View
-            style={{
-              gap: 10,
-              padding: 10,
-              borderWidth: 1,
-              borderColor: "#ddd",
-              borderRadius: 8,
-            }}
-          >
+          <View className="gap-y-[10px] p-[10px] border border-[#ddd] rounded-lg">
             <Labeled label="Nome do morador *">
               <TextInput
                 value={nome}
                 onChangeText={setNome}
-                style={styles.inputStyle}
+                className="border border-[#ccc] rounded-lg px-3 py-[10px]"
               />
             </Labeled>
             <Labeled label="Número da casa *">
               <TextInput
                 value={numeroCasa}
                 onChangeText={setNumeroCasa}
-                style={styles.inputStyle}
+                className="border border-[#ccc] rounded-lg px-3 py-[10px]"
                 inputMode="numeric"
               />
             </Labeled>
@@ -194,63 +243,37 @@ export default function NoteForm({ initial, onSubmit }: NoteFormProps) {
               <TextInput
                 value={celular}
                 onChangeText={setCelular}
-                style={styles.inputStyle}
+                className="border border-[#ccc] rounded-lg px-3 py-[10px]"
                 inputMode="tel"
               />
             </Labeled>
-            <Labeled label="Data combinada * (yyyy-mm-dd)">
+            <Labeled label="Data combinada * (dd/MM/yyyy)">
               <TextInput
-                value={dataRev}
-                onChangeText={setDataRev}
-                style={styles.inputStyle}
+                value={dataRevDisplay}
+                onChangeText={setDataRevDisplay}
+                placeholder="31/12/2025"
+                className="border border-[#ccc] rounded-lg px-3 py-[10px]"
               />
             </Labeled>
             <Labeled label="Horário combinado * (HH:mm)">
               <TextInput
                 value={horaRev}
                 onChangeText={setHoraRev}
-                style={styles.inputStyle}
+                className="border border-[#ccc] rounded-lg px-3 py-[10px]"
                 placeholder="14:30"
+                keyboardType="numbers-and-punctuation"
               />
             </Labeled>
           </View>
         )}
 
-        <Pressable onPress={handleSave} style={styles.buttonPrimary}>
-          <Text style={{ color: "#fff", fontWeight: "600" }}>Salvar</Text>
+        <Pressable
+          onPress={handleSave}
+          className="bg-[#111827] p-[14px] rounded-[10px] items-center"
+        >
+          <Text className="text-[#FFF] font-semibold">Salvar</Text>
         </Pressable>
       </View>
     </ScrollView>
   );
 }
-
-function Labeled({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <View style={{ gap: 6 }}>
-      <Text style={{ fontWeight: "500" }}>{label}</Text>
-      {children}
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  inputStyle: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  buttonPrimary: {
-    backgroundColor: "#111827",
-    padding: 14,
-    borderRadius: 10,
-    alignItems: "center",
-  },
-});

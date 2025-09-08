@@ -3,17 +3,17 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export type Note = {
   id: string;
-  date: string; // ISO yyyy-mm-dd
-  hours: number; // 0..24
-  locationNotes?: string; // opcional
-  actions: string[]; // checkboxes selecionados
+  date: string;
+  hours: number;
+  locationNotes?: string;
+  actions: string[];
   revisita: {
     enabled: boolean;
     nome?: string;
     numeroCasa?: string;
-    celular?: string; // opcional
-    data?: string; // yyyy-mm-dd
-    horario?: string; // HH:mm
+    celular?: string;
+    data?: string;
+    horario?: string;
   };
 };
 
@@ -28,10 +28,8 @@ type NotesCtx = {
 
 const NOTES_KEY = "hs.notes";
 
-/** Context começa como `undefined` para tipagem segura */
 const Ctx = createContext<NotesCtx | undefined>(undefined);
 
-/** Hook seguro */
 export const useNotes = () => {
   const ctx = useContext(Ctx);
   if (!ctx)

@@ -21,6 +21,17 @@ export default function TabsLayout() {
           ),
         }}
       />
+      {/* 👇 NOVA ABA */}
+      <Tabs.Screen
+        name="timer/index"
+        options={{
+          title: "Cronômetro",
+          tabBarLabel: "Cronômetro",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? "timer" : "timer-outline"} size={22} color={color} />
+          ),
+        }}
+      />
       <Tabs.Screen
         name="reports/index"
         options={{
