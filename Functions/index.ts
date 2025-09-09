@@ -65,6 +65,21 @@ function todayIso() {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+function formatCreatedAt(v: any) {
+  if (!v) return "—";
+  // Firestore Timestamp
+  if (typeof v === "object" && v?.seconds != null) {
+    return new Date(v.seconds * 1000).toLocaleDateString("pt-BR");
+  }
+  // String ISO
+  if (typeof v === "string") {
+    const d = new Date(v);
+    if (!isNaN(d.getTime())) return d.toLocaleDateString("pt-BR");
+  }
+  return "—";
+}
+
+
 export {
   toDisplayDate,
   toIsoDate,
@@ -75,4 +90,5 @@ export {
   splitHHMMSS,
   msToHoursDecimal,
   todayIso,
+  formatCreatedAt
 };

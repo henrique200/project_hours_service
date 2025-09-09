@@ -1,13 +1,17 @@
 import { useEffect, useRef, useState } from "react";
-import { View, Text, Pressable, Alert } from "react-native";
+import { View, Text, Alert, AppState, AppStateStatus } from "react-native";
 import { router } from "expo-router";
-import {
-  LIMIT_MS,
-  msToHoursDecimal,
-  pad,
-  splitHHMMSS,
-  todayIso,
-} from "@/Functions";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { LIMIT_MS, msToHoursDecimal, pad, splitHHMMSS, todayIso } from "@/Functions";
+import { Button } from "@/components/ui";
+
+const STORAGE_KEY = "TIMER_STATE_V1";
+
+type PersistedState = {
+  elapsedMs: number;
+  running: boolean;
+  startedAt?: number;
+};
 
 export default function TimerScreen() {
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -15,8 +19,73 @@ export default function TimerScreen() {
   const startedAtRef = useRef<number | null>(null);
 
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const persistRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [, setNudge] = useState(0);
+
+  async function saveStateSnap(snapElapsed: number, snapRunning: boolean, snapStartedAt?: number) {
+    try {
+      const toSave: PersistedState = {
+        elapsedMs: snapElapsed,
+        running: snapRunning,
+        startedAt: snapRunning ? snapStartedAt : undefined,
+      };
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+    } catch {}
+  }
+
+  async function loadState(): Promise<PersistedState | null> {
+    try {
+      const raw = await AsyncStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      return JSON.parse(raw) as PersistedState;
+    } catch {
+      return null;
+    }
+  }
+
+  function getShownMs() {
+    if (running && startedAtRef.current) {
+      const ms = elapsedMs + (Date.now() - startedAtRef.current);
+      return ms >= LIMIT_MS ? LIMIT_MS : ms;
+    }
+    return elapsedMs;
+  }
+
+  async function hydrateFromStorage() {
+    const s = await loadState();
+    if (!s) return;
+
+    let newElapsed = s.elapsedMs;
+    if (s.running && s.startedAt) {
+      newElapsed = Math.min(LIMIT_MS, s.elapsedMs + (Date.now() - s.startedAt));
+    }
+
+    setElapsedMs(newElapsed);
+    const shouldRun = s.running && newElapsed < LIMIT_MS;
+    setRunning(shouldRun);
+    startedAtRef.current = shouldRun ? Date.now() : null;
+
+    await saveStateSnap(newElapsed, shouldRun, startedAtRef.current ?? undefined);
+  }
+
+  useEffect(() => {
+    function onChange(next: AppStateStatus) {
+      if (next === "background" || next === "inactive") {
+        const snap = getShownMs();
+        saveStateSnap(snap, running, running ? Date.now() : undefined);
+      } else if (next === "active") {
+        hydrateFromStorage();
+      }
+    }
+    const sub = AppState.addEventListener("change", onChange);
+    return () => sub.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [running, elapsedMs]);
+
+  useEffect(() => {
+    hydrateFromStorage();
+  }, []);
 
   useEffect(() => {
     if (tickRef.current) {
@@ -38,6 +107,7 @@ export default function TimerScreen() {
           clearInterval(tickRef.current);
           tickRef.current = null;
         }
+        saveStateSnap(LIMIT_MS, false, undefined);
         Alert.alert("Limite atingido", "O cronômetro atingiu 24h.");
       } else {
         setNudge((n) => (n + 1) % 1_000_000);
@@ -52,36 +122,68 @@ export default function TimerScreen() {
     };
   }, [running, elapsedMs]);
 
-  function getShownMs() {
-    if (running && startedAtRef.current) {
-      const ms = elapsedMs + (Date.now() - startedAtRef.current);
-      return ms >= LIMIT_MS ? LIMIT_MS : ms;
+  useEffect(() => {
+    if (persistRef.current) {
+      clearInterval(persistRef.current);
+      persistRef.current = null;
     }
-    return elapsedMs;
-  }
+    if (!running) return;
 
-  function handleInicio() {
+    persistRef.current = setInterval(() => {
+      const snap = getShownMs();
+      saveStateSnap(snap, true, Date.now());
+    }, 5000);
+
+    return () => {
+      if (persistRef.current) {
+        clearInterval(persistRef.current);
+        persistRef.current = null;
+      }
+    };
+  }, [running, elapsedMs]);
+
+  useEffect(() => {
+    return () => {
+      const snap = getShownMs();
+      saveStateSnap(snap, running, running ? Date.now() : undefined);
+      if (tickRef.current) {
+        clearInterval(tickRef.current);
+        tickRef.current = null;
+      }
+      if (persistRef.current) {
+        clearInterval(persistRef.current);
+        persistRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function handleInicio() {
     setElapsedMs(0);
     setRunning(true);
     startedAtRef.current = Date.now();
+    await saveStateSnap(0, true, startedAtRef.current);
   }
 
-  function handlePlayPause() {
+  async function handlePlayPause() {
     if (running) {
       const now = Date.now();
       const started = startedAtRef.current ?? now;
       const inc = now - started;
-      setElapsedMs((prev) => Math.min(prev + inc, LIMIT_MS));
+      const next = Math.min(elapsedMs + inc, LIMIT_MS);
+      setElapsedMs(next);
       setRunning(false);
       startedAtRef.current = null;
+      await saveStateSnap(next, false, undefined);
     } else {
       if (elapsedMs >= LIMIT_MS) return;
       setRunning(true);
       startedAtRef.current = Date.now();
+      await saveStateSnap(elapsedMs, true, startedAtRef.current);
     }
   }
 
-  function resetAll() {
+  async function resetAll() {
     setRunning(false);
     startedAtRef.current = null;
     setElapsedMs(0);
@@ -89,6 +191,11 @@ export default function TimerScreen() {
       clearInterval(tickRef.current);
       tickRef.current = null;
     }
+    if (persistRef.current) {
+      clearInterval(persistRef.current);
+      persistRef.current = null;
+    }
+    await saveStateSnap(0, false, undefined);
   }
 
   function handleStop() {
@@ -106,19 +213,16 @@ export default function TimerScreen() {
         },
         {
           text: "Salvar nas anotações",
-          onPress: () => {
+          onPress: async () => {
             if (shown <= 0) {
               Alert.alert("Cronômetro zerado", "Não há tempo para salvar.");
               return;
             }
             router.push({
               pathname: "/(app)/notes/new",
-              params: {
-                hours: String(hoursDec),
-                date: todayIso(),
-              },
+              params: { hours: String(hoursDec), date: todayIso() },
             } as any);
-            resetAll();
+            await resetAll();
           },
         },
       ]
@@ -138,28 +242,14 @@ export default function TimerScreen() {
       </View>
 
       <View className="flex-row gap-3">
-        <Pressable
-          onPress={handleInicio}
-          className="flex-1 bg-brand-900 rounded-xl py-3 items-center"
-        >
-          <Text className="text-white font-semibold">Início</Text>
-        </Pressable>
-
-        <Pressable
+        <Button title="Início" variant="primary" className="flex-1" onPress={handleInicio} />
+        <Button
+          title={running ? "Pause" : "Play"}
+          variant="secondary"
+          className="flex-1"
           onPress={handlePlayPause}
-          className="flex-1 bg-accent-600 rounded-xl py-3 items-center"
-        >
-          <Text className="text-white font-semibold">
-            {running ? "Pause" : "Play"}
-          </Text>
-        </Pressable>
-
-        <Pressable
-          onPress={handleStop}
-          className="flex-1 bg-red-600 rounded-xl py-3 items-center"
-        >
-          <Text className="text-white font-semibold">Stop</Text>
-        </Pressable>
+        />
+        <Button title="Stop" variant="destructive" className="flex-1" onPress={handleStop} />
       </View>
     </View>
   );
