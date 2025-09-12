@@ -75,8 +75,8 @@ export const NotesProvider: React.FC<{ children: React.ReactNode }> = ({
         const list: Note[] = [];
         snap.forEach((d) => {
           const data = d.data() as any;
-          if ("id" in data) delete data.id; // ✅ evita sobrescrever com id do payload
-          list.push({ ...(data as any), id: d.id } as Note); // ✅ doc.id vence
+          if ("id" in data) delete data.id;
+          list.push({ ...(data as any), id: d.id } as Note);
         });
         setNotes(list);
         setLoading(false);
@@ -98,13 +98,12 @@ export const NotesProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       const notesRef = collection(db, COLLECTION_NAME);
 
-      // ✅ não envie 'id' para o Firestore
       const { id: _drop, ...rest } = noteData as any;
 
       const payload = pruneUndefined({
         ...rest,
         userId: user.id,
-        monthKey: rest.date.slice(0, 7), // "yyyy-MM"
+        monthKey: rest.date.slice(0, 7),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });

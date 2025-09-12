@@ -135,8 +135,8 @@ export default function NotesList() {
           </View>
         }
         renderItem={({ item }) => {
-          const est = item.estudo as any;      // suporte a union com enabled true/false
-          const rev = item.revisita as any;    // idem
+          const est = item.estudo as any;     
+          const rev = item.revisita as any;   
           const isStudy = !!est?.enabled;
           const hasRevisita = !!rev?.enabled;
 

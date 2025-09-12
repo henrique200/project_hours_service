@@ -7,7 +7,6 @@ import { useAuth } from "./AuthContext";
 import { db } from "@/lib/firebase";
 import { Note, Report, ReportEntry, ReportsCtx } from "@/type";
 
-// ✅ para fallback em notas antigas sem campo "estudo"
 import { A_REV_3_ESTUDO, A_REV_3_ESTUDO_SF } from "@/constants/noteActions";
 
 const COLLECTION_NAME = "reports";
@@ -21,7 +20,7 @@ export const useReports = () => {
 };
 
 function monthFromDateISO(dateISO: string) {
-  return dateISO.slice(0, 7); // "2025-09-03" -> "2025-09"
+  return dateISO.slice(0, 7);
 }
 
 function monthLabel(yyyyMM: string) {
@@ -45,7 +44,6 @@ function isClosedMonth(yyyyMM: string) {
   return yyyyMM !== current;
 }
 
-// helper: aceita boolean antigo OU objeto { enabled }
 function isEnabledField(val: any): boolean {
   if (typeof val === "boolean") return val;
   if (val && typeof val === "object" && "enabled" in val) return !!val.enabled;
@@ -113,17 +111,13 @@ export const ReportsProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const now = new Date();
       const yyyyMM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
-      // Apenas notas do mês
       const monthNotes = notes.filter((n) => monthFromDateISO(n.date) === yyyyMM);
 
-      // 🔁 agrega por dia (somente leitura no relatório)
       const entries: ReportEntry[] = monthNotes
         .sort((a, b) => a.date.localeCompare(b.date))
         .map<ReportEntry>((n) => {
-          // revisita moderno (union) OU boolean legado
           const revisita = isEnabledField(n.revisita);
 
-          // estudo moderno (union) OU legado via ações da 3ª revisita
           const estudoFromField = isEnabledField((n as any).estudo);
           const estudoFromActions =
             Array.isArray(n.actions) &&

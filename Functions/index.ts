@@ -41,7 +41,7 @@ function hhmmToHours(s: string) {
   return h + min / 60;
 }
 
-const LIMIT_MS = 24 * 60 * 60 * 1000; // 24h
+const LIMIT_MS = 24 * 60 * 60 * 1000;
 
 function pad(n: number) {
   return String(n).padStart(2, "0");
@@ -67,11 +67,9 @@ function todayIso() {
 
 function formatCreatedAt(v: any) {
   if (!v) return "—";
-  // Firestore Timestamp
   if (typeof v === "object" && v?.seconds != null) {
     return new Date(v.seconds * 1000).toLocaleDateString("pt-BR");
   }
-  // String ISO
   if (typeof v === "string") {
     const d = new Date(v);
     if (!isNaN(d.getTime())) return d.toLocaleDateString("pt-BR");

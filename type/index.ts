@@ -90,21 +90,25 @@ type Profile = {
   updatedAt?: any;
 };
 
-// exemplo mínimo do AuthCtx (ajuste no seu arquivo real)
 type AuthCtx = {
   user: Profile | null;
   firebaseUser: any | null;
   loading: boolean;
   signIn(email: string, password: string): Promise<void>;
-  signUp(email: string, password: string, profileData: Omit<Profile, "id" | "email" | "createdAt" | "updatedAt">): Promise<void>;
+  signUp(
+    email: string,
+    password: string,
+    profileData: Omit<Profile, "id" | "email" | "createdAt" | "updatedAt">
+  ): Promise<void>;
   signOut(): Promise<void>;
   updateProfile(profileData: Partial<Profile>): Promise<void>;
 
   resetPassword(email: string): Promise<void>;
   confirmPasswordReset(oobCode: string, newPassword: string): Promise<void>;
   changePassword(newPassword: string): Promise<void>;
-};
 
+  deleteAccount(password: string): Promise<void>;
+};
 
 type VariantConfirmProvider =
   | "primary"
@@ -148,8 +152,8 @@ type Revisita =
       nome: string;
       numeroCasa: string;
       celular?: string;
-      data: string;      // ISO
-      horario: string;   // HH:mm
+      data: string;
+      horario: string;
       endereco?: string;
     };
 
@@ -160,32 +164,25 @@ type Estudo =
       nome: string;
       numeroCasa: string;
       celular?: string;
-      dia: string;       // ISO
-      horario: string;   // HH:mm
+      dia: string;
+      horario: string;
       endereco?: string;
-      material?: string; // ex.: "Seja Feliz para Sempre"
+      material?: string;
     };
 
-// Se você quiser suportar notas antigas que não tinham "estudo", deixe "estudo?" opcional.
 type Note = {
   id: string;
   date: string;
   hours: number;
   locationNotes?: string;
   actions: string[];
-
-  // Melhor como union também (em vez de "enabled: boolean" com tudo opcional)
   revisita: Revisita;
-
-  // Recomendo opcional para retrocompatibilidade
   estudo?: Estudo;
-
   monthKey?: string;
   userId?: string;
   createdAt?: any;
   updatedAt?: any;
 };
-
 
 type NotesCtx = {
   notes: Note[];
@@ -209,7 +206,7 @@ type ReportEntry = {
   date: string;
   hours: number;
   revisita: boolean;
-  estudo: boolean;  
+  estudo: boolean;
 };
 
 type Report = {

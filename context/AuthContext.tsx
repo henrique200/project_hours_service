@@ -8,8 +8,22 @@ import {
   sendPasswordResetEmail,
   confirmPasswordReset as fbConfirmPasswordReset,
   updatePassword,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
+  deleteUser as fbDeleteUser,
 } from "firebase/auth";
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  setDoc,
+  serverTimestamp,
+  deleteDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+  limit as fsLimit,
+} from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { AuthCtx, Profile } from "@/type";
 
@@ -20,6 +34,25 @@ export const useAuth = () => {
   if (!ctx) throw new Error("useAuth deve ser usado dentro de <AuthProvider>");
   return ctx;
 };
+
+async function deleteCollectionByUserId(
+  collName: string,
+  uid: string,
+  batchSize = 300
+) {
+  while (true) {
+    const q = query(
+      collection(db, collName),
+      where("userId", "==", uid),
+      fsLimit(batchSize)
+    );
+    const snap = await getDocs(q);
+    if (snap.empty) break;
+
+    await Promise.all(snap.docs.map((d) => deleteDoc(doc(db, collName, d.id))));
+    if (snap.size < batchSize) break;
+  }
+}
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<Profile | null>(null);
@@ -125,20 +158,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }
 
-  // 🔹 NOVO: enviar e-mail de redefinição
   async function resetPassword(email: string) {
-    await sendPasswordResetEmail(auth, email /*, actionCodeSettings opcional */);
+    await sendPasswordResetEmail(auth, email);
   }
 
-  // 🔹 NOVO: confirmar redefinição com o código do e-mail
   async function confirmPasswordReset(oobCode: string, newPassword: string) {
     await fbConfirmPasswordReset(auth, oobCode, newPassword);
   }
 
-  // 🔹 NOVO: alterar senha estando logado (não é o caso de “perdi a senha”, mas útil)
   async function changePassword(newPassword: string) {
     if (!auth.currentUser) throw new Error("Usuário não está logado");
     await updatePassword(auth.currentUser, newPassword);
+  }
+
+  async function deleteAccount(password: string) {
+    const fu = auth.currentUser;
+    if (!fu) throw new Error("Usuário não está logado");
+    const email = fu.email;
+    if (!email) throw new Error("Conta sem email; reautenticação impossível.");
+
+    const cred = EmailAuthProvider.credential(email, password);
+    await reauthenticateWithCredential(fu, cred);
+
+    const uid = fu.uid;
+    await deleteCollectionByUserId("notes", uid);
+    await deleteCollectionByUserId("reports", uid);
+
+    await deleteDoc(doc(db, "users", uid));
+
+    await fbDeleteUser(fu);
+
   }
 
   const value: AuthCtx = {
@@ -149,10 +198,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signUp,
     signOut,
     updateProfile,
-    // novos
     resetPassword,
     confirmPasswordReset,
     changePassword,
+    deleteAccount,
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

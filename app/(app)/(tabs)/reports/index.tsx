@@ -1,11 +1,20 @@
-import { View, Text, FlatList, ActivityIndicator } from "react-native";
+import {
+  View,
+  Text,
+  FlatList,
+  ActivityIndicator,
+  Platform,
+} from "react-native";
 import { useReports } from "../../../../context/ReportsContext";
 import { formatCreatedAt, hoursToHHmm, toDisplayDate } from "@/Functions";
 import { Button } from "@/components/ui";
 import { useConfirm } from "@/context/ConfirmProvider";
+import { shareReportPdf, saveReportPdfToDownloads } from "@/utils/reportPdf";
+import { useAuth } from "@/context/AuthContext";
 
 export default function ReportsScreen() {
   const { reports, deleteReport, loading, error } = useReports();
+  const { user } = useAuth();
   const confirm = useConfirm();
 
   async function handleDeleteReport(id: string, periodLabel: string) {
@@ -25,6 +34,39 @@ export default function ReportsScreen() {
       await confirm.confirm({
         title: "Erro",
         message: "Não foi possível excluir o relatório.",
+        confirmText: "OK",
+        confirmVariant: "destructive",
+      });
+    }
+  }
+
+  async function handleShare(item: any) {
+    try {
+      await shareReportPdf(item, { author: user?.nomeCompleto || user?.email });
+    } catch (e) {
+      await confirm.confirm({
+        title: "Erro ao compartilhar",
+        message: "Não foi possível compartilhar o PDF.",
+        confirmText: "OK",
+        confirmVariant: "destructive",
+      });
+    }
+  }
+
+  async function handleSave(item: any) {
+    try {
+      await saveReportPdfToDownloads(item, {
+        author: user?.nomeCompleto || user?.email,
+      });
+      await confirm.confirm({
+        title: "PDF salvo",
+        message: "O arquivo foi salvo na pasta escolhida.",
+        confirmText: "OK",
+      });
+    } catch (e) {
+      await confirm.confirm({
+        title: "Erro ao salvar PDF",
+        message: "Tente compartilhar o PDF ou verifique as permissões.",
         confirmText: "OK",
         confirmVariant: "destructive",
       });
@@ -60,7 +102,7 @@ export default function ReportsScreen() {
         ListEmptyComponent={
           <View className="flex-1 justify-center items-center py-12">
             <Text className="text-gray-500 text-center">
-              Ainda não há relatórios.{'\n'}
+              Ainda não há relatórios.{"\n"}
               Gere um na tela de Anotações.
             </Text>
           </View>
@@ -68,10 +110,14 @@ export default function ReportsScreen() {
         renderItem={({ item }) => (
           <View className="border border-gray-200 rounded-xl p-3 gap-2">
             <View className="flex-row justify-between items-start">
-              <Text className="font-extrabold text-lg flex-1">{item.periodLabel}</Text>
+              <Text className="font-extrabold text-lg flex-1">
+                {item.periodLabel}
+              </Text>
               {item.isClosed && (
                 <View className="bg-green-100 px-2 py-1 rounded">
-                  <Text className="text-green-700 text-xs font-semibold">Finalizado</Text>
+                  <Text className="text-green-700 text-xs font-semibold">
+                    Finalizado
+                  </Text>
                 </View>
               )}
             </View>
@@ -79,14 +125,15 @@ export default function ReportsScreen() {
             {item.entries.length ? (
               <View className="gap-1">
                 {item.entries.map((ent: any, idx: number) => {
-                  // Compat: pode vir boolean ou objeto {enabled:boolean}
                   const rv = ent?.revisita;
                   const es = ent?.estudo;
 
-                  const isRevisita =
-                    !!(typeof rv === "boolean" ? rv : rv?.enabled);
-                  const isEstudo =
-                    !!(typeof es === "boolean" ? es : es?.enabled);
+                  const isRevisita = !!(typeof rv === "boolean"
+                    ? rv
+                    : rv?.enabled);
+                  const isEstudo = !!(typeof es === "boolean"
+                    ? es
+                    : es?.enabled);
 
                   return (
                     <View
@@ -129,9 +176,20 @@ export default function ReportsScreen() {
 
             <View className="flex-row gap-2 mt-2">
               <Button
+                title="Compartilhar PDF"
+                variant="secondary"
+                onPress={() => handleShare(item)}
+              />
+              {Platform.OS !== "ios" && (
+                <Button
+                  title="Salvar PDF"
+                  variant="outline"
+                  onPress={() => handleSave(item)}
+                />
+              )}
+              <Button
                 title="Excluir"
                 variant="destructive"
-                className="flex-1"
                 onPress={() => handleDeleteReport(item.id, item.periodLabel)}
               />
             </View>

@@ -10,6 +10,7 @@ export default function AppLayout() {
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="notes/new" options={{ title: "Nova anotação" }} />
       <Stack.Screen name="notes/[id]" options={{ title: "Editar anotação" }} />
+      <Stack.Screen name="settings/delete-account" options={{ title: "Apagar Conta" }} />
     </Stack>
   );
 }

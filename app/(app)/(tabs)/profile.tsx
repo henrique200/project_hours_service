@@ -25,6 +25,10 @@ export default function Profile() {
     }
   }
 
+   function handleDeleteAccount() {
+    router.push('/(app)/settings/delete-account');
+  }
+
   return (
     <View className="flex-1 p-4 gap-2 bg-white">
       <Text className="text-xl font-extrabold">Meu perfil</Text>
@@ -37,7 +41,16 @@ export default function Profile() {
         Cidade/UF: {user.cidade || "—"} / {user.estado || "—"}
       </Text>
 
-      <View className="mt-4">
+       <View className="mt-4">
+        <Button
+          title="Apagar Conta"
+          variant="primary"
+          onPress={handleDeleteAccount}
+          loading={isExiting}
+        />
+      </View>
+
+      <View className="">
         <Button
           title="Sair"
           variant="destructive"

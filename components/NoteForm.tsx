@@ -39,7 +39,6 @@ export default function NoteForm({ initial, onSubmit }: NoteFormProps) {
   );
   const [actions, setActions] = useState<string[]>(initial?.actions ?? []);
 
-  // revisita (quando NÃO for estudo)
   const [revisitaEnabled, setRevisitaEnabled] = useState<boolean>(
     initial?.revisita?.enabled ?? false
   );
@@ -72,7 +71,6 @@ export default function NoteForm({ initial, onSubmit }: NoteFormProps) {
       : "") as string
   );
 
-  // estudo
   const initialEstudo =
     initial?.estudo && initial.estudo.enabled ? initial.estudo : undefined;
   const [estNome, setEstNome] = useState(initialEstudo?.nome ?? "");
@@ -89,41 +87,34 @@ export default function NoteForm({ initial, onSubmit }: NoteFormProps) {
 
   const confirm = useConfirm();
 
-  // flag: "Abriu estudo" marcado automaticamente devido à 3ª revisita
   const autoStudyByThirdRef = useRef(false);
 
-  // estados derivados
   const thirdSelected =
     actions.includes(A_REV_3_ESTUDO) || actions.includes(A_REV_3_ESTUDO_SF);
 
   const explicitStudySelected = actions.includes(A_ABRIU_ESTUDO);
   const initialWasStudy = !!initialEstudo?.enabled;
 
-  // Agora o formulário vira Estudo também quando "Abriu estudo" for marcado manualmente
   const isStudy = thirdSelected || explicitStudySelected || initialWasStudy;
 
-  // 1) Qualquer ação de revisita => liga a seção (se isStudy, a UI mostra Estudo)
   useEffect(() => {
     const hasRevisita = actions.some((a) => REVISITA_ACTIONS.has(a));
     if (hasRevisita && !revisitaEnabled) setRevisitaEnabled(true);
   }, [actions, revisitaEnabled]);
 
-  // 1.1) Se marcar explicitamente "Abriu estudo", garante abrir a seção
   useEffect(() => {
     if (explicitStudySelected && !revisitaEnabled) {
       setRevisitaEnabled(true);
     }
   }, [explicitStudySelected, revisitaEnabled]);
 
-  // 2) Regra simétrica para 3ª revisita (auto marca e remove "Abriu estudo")
   useEffect(() => {
     if (thirdSelected) {
       if (!actions.includes(A_ABRIU_ESTUDO)) {
-        autoStudyByThirdRef.current = true; // marcado automaticamente por 3ª revisita
+        autoStudyByThirdRef.current = true;
         setActions((prev) => [...prev, A_ABRIU_ESTUDO]);
       }
     } else {
-      // só remove automaticamente se foi adicionado automaticamente
       if (autoStudyByThirdRef.current && actions.includes(A_ABRIU_ESTUDO)) {
         autoStudyByThirdRef.current = false;
         setActions((prev) => prev.filter((a) => a !== A_ABRIU_ESTUDO));
@@ -137,7 +128,6 @@ export default function NoteForm({ initial, onSubmit }: NoteFormProps) {
     setActions((prev) => {
       const exists = prev.includes(label);
 
-      // Se o usuário marcar manualmente "Abriu estudo", desligamos a flag de auto
       if (!exists && label === A_ABRIU_ESTUDO) {
         autoStudyByThirdRef.current = false;
       }
@@ -145,7 +135,6 @@ export default function NoteForm({ initial, onSubmit }: NoteFormProps) {
     });
   }
 
-  // validação comum (formato de horas)
   async function validate(): Promise<boolean> {
     const h = hhmmToHours(hoursHHmm);
     if (h === null) {
@@ -159,10 +148,8 @@ export default function NoteForm({ initial, onSubmit }: NoteFormProps) {
       return false;
     }
 
-    // Seção ativa (revisita ou estudo)
     if (revisitaEnabled || isStudy) {
       if (isStudy) {
-        // Validação do ESTUDO
         if (
           !estNome.trim() ||
           !estNumeroCasa.trim() ||
@@ -187,7 +174,6 @@ export default function NoteForm({ initial, onSubmit }: NoteFormProps) {
           return false;
         }
       } else {
-        // Validação da REVISITA
         if (
           !nome.trim() ||
           !numeroCasa.trim() ||
@@ -223,7 +209,6 @@ export default function NoteForm({ initial, onSubmit }: NoteFormProps) {
 
     const hoursNumber = hhmmToHours(hoursHHmm)!;
 
-    // Montagem condicionada
     const revisita =
       !isStudy && revisitaEnabled
         ? {
@@ -317,7 +302,7 @@ export default function NoteForm({ initial, onSubmit }: NoteFormProps) {
           <TouchableOpacity
             onPress={() => setRevisitaEnabled(!revisitaEnabled)}
             className="flex-row items-center gap-x-2"
-            disabled={isStudy} // se virou estudo (3ª revisita ou abriu estudo), desabilito o toggle
+            disabled={isStudy}
           >
             <Checkbox
               value={isStudy ? true : revisitaEnabled}

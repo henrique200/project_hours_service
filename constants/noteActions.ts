@@ -12,7 +12,6 @@ const A_REV_1_SF =
 const A_REV_2_SF =
   'Segunda Revisita (Considerando Revista "Seja Feliz para Sempre")';
 
-// --- NOVO ---
 const A_REV_3_ESTUDO = "Terceira Revisita(Estudo)";
 const A_REV_3_ESTUDO_SF =
   "Terceira Revisita((Estudo) considerando revista Seja Feliz para Sempre)";
@@ -27,18 +26,15 @@ const ACTIONS_ALL = [
   A_NAO_QUER_ESTUDO,
   A_REV_1_SF,
   A_REV_2_SF,
-  // --- NOVOS ---
   A_REV_3_ESTUDO,
   A_REV_3_ESTUDO_SF,
 ];
 
-// Ações que devem apenas ativar a seção de Revisita (sem auto-marcar "Abriu estudo...")
 const REVISITA_ACTIONS = new Set([
   A_REV_1,
   A_REV_2,
   A_REV_1_SF,
   A_REV_2_SF,
-  // --- NOVOS ---
   A_REV_3_ESTUDO,
   A_REV_3_ESTUDO_SF,
 ]);
@@ -50,7 +46,6 @@ export {
   A_REV_2,
   A_REV_1_SF,
   A_REV_2_SF,
-  // --- NOVOS ---
   A_REV_3_ESTUDO,
   A_REV_3_ESTUDO_SF,
   REVISITA_ACTIONS,

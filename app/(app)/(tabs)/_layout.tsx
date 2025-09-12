@@ -21,7 +21,6 @@ export default function TabsLayout() {
           ),
         }}
       />
-      {/* 👇 NOVA ABA */}
       <Tabs.Screen
         name="timer/index"
         options={{
