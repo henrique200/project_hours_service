@@ -1,5 +1,3 @@
-import { Note } from "@/context/NotesContext";
-
 const A_ENTREGOU = "Entregou publicações em mãos para o morador";
 const A_DEIXOU_CARTA = "Deixou carta na caixinha da casa do morador";
 const A_DEIXOU_PUB_SEM_FALAR =
@@ -14,6 +12,11 @@ const A_REV_1_SF =
 const A_REV_2_SF =
   'Segunda Revisita (Considerando Revista "Seja Feliz para Sempre")';
 
+// --- NOVO ---
+const A_REV_3_ESTUDO = "Terceira Revisita(Estudo)";
+const A_REV_3_ESTUDO_SF =
+  "Terceira Revisita((Estudo) considerando revista Seja Feliz para Sempre)";
+
 const ACTIONS_ALL = [
   A_ENTREGOU,
   A_DEIXOU_CARTA,
@@ -24,14 +27,21 @@ const ACTIONS_ALL = [
   A_NAO_QUER_ESTUDO,
   A_REV_1_SF,
   A_REV_2_SF,
+  // --- NOVOS ---
+  A_REV_3_ESTUDO,
+  A_REV_3_ESTUDO_SF,
 ];
 
-const REVISITA_ACTIONS = new Set([A_REV_1, A_REV_2, A_REV_1_SF, A_REV_2_SF]);
-
-type NoteFormProps = {
-  initial?: Partial<Note>;
-  onSubmit: (note: Note) => void;
-};
+// Ações que devem apenas ativar a seção de Revisita (sem auto-marcar "Abriu estudo...")
+const REVISITA_ACTIONS = new Set([
+  A_REV_1,
+  A_REV_2,
+  A_REV_1_SF,
+  A_REV_2_SF,
+  // --- NOVOS ---
+  A_REV_3_ESTUDO,
+  A_REV_3_ESTUDO_SF,
+]);
 
 export {
   ACTIONS_ALL,
@@ -40,6 +50,8 @@ export {
   A_REV_2,
   A_REV_1_SF,
   A_REV_2_SF,
+  // --- NOVOS ---
+  A_REV_3_ESTUDO,
+  A_REV_3_ESTUDO_SF,
   REVISITA_ACTIONS,
 };
-export type { NoteFormProps };

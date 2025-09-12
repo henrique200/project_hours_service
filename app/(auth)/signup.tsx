@@ -1,11 +1,13 @@
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Text, ScrollView, Alert, ActivityIndicator } from "react-native";
+import { Text, ScrollView, ActivityIndicator } from "react-native";
 import { FirebaseError } from "firebase/app";
 import { useAuth } from "../../context/AuthContext";
 import { Button, Input } from "@/components/ui";
 import DatePicker from "@/components/ui/DatePicker";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useConfirm } from "@/context/ConfirmProvider";
+import KAV, { KAVScroll } from "@/components/ui/KAV";
 
 export default function Signup() {
   const { signUp, loading, firebaseUser } = useAuth();
@@ -18,6 +20,8 @@ export default function Signup() {
   const [estado, setEstado] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  const confirmModal = useConfirm();
+
   const today = useMemo(() => new Date(), []);
   const [nascIso, setNascIso] = useState<string | undefined>(undefined);
 
@@ -28,7 +32,8 @@ export default function Signup() {
   }, [loading, firebaseUser]);
 
   function mapError(e: unknown) {
-    const code = e instanceof FirebaseError ? e.code : (e as any)?.code ?? "unknown";
+    const code =
+      e instanceof FirebaseError ? e.code : (e as any)?.code ?? "unknown";
     switch (code) {
       case "auth/email-already-in-use":
         return "Este email já está em uso.";
@@ -47,29 +52,67 @@ export default function Signup() {
 
   async function handleSubmit() {
     const emailNorm = email.toLowerCase().trim();
+    const nomeTrim = nome.trim();
+    const congregTrim = congreg.trim();
+    const cidadeTrim = cidade.trim();
+    const estadoTrim = estado.trim();
 
-    if (!emailNorm || !senha || !confirm || !nome.trim() || !nascIso || !congreg.trim() || !cidade.trim() || !estado.trim()) {
-      return Alert.alert("Erro", "Preencha todos os campos obrigatórios.");
+    if (
+      !emailNorm ||
+      !senha ||
+      !confirm ||
+      !nomeTrim ||
+      !nascIso ||
+      !congregTrim ||
+      !cidadeTrim ||
+      !estadoTrim
+    ) {
+      await confirmModal.confirm({
+        title: "Erro",
+        message: "Preencha todos os campos obrigatórios.",
+        confirmText: "OK",
+        confirmVariant: "destructive",
+      });
+      return;
     }
+
     if (senha !== confirm) {
-      return Alert.alert("Erro", "As senhas não conferem.");
+      await confirmModal.confirm({
+        title: "Erro",
+        message: "As senhas não conferem.",
+        confirmText: "OK",
+        confirmVariant: "destructive",
+      });
+      return;
     }
+
     if (senha.length < 6) {
-      return Alert.alert("Erro", "A senha deve ter pelo menos 6 caracteres.");
+      await confirmModal.confirm({
+        title: "Erro",
+        message: "A senha deve ter pelo menos 6 caracteres.",
+        confirmText: "OK",
+        confirmVariant: "destructive",
+      });
+      return;
     }
 
     try {
       setIsLoading(true);
       await signUp(emailNorm, senha, {
-        nomeCompleto: nome.trim(),
-        dataNascimento: nascIso, 
-        congregacao: congreg.trim(),
-        cidade: cidade.trim(),
-        estado: estado.trim(),
+        nomeCompleto: nomeTrim,
+        dataNascimento: nascIso,
+        congregacao: congregTrim,
+        cidade: cidadeTrim,
+        estado: estadoTrim,
       });
       router.replace("/(app)/(tabs)/notes");
     } catch (err) {
-      Alert.alert("Erro no cadastro", mapError(err));
+      await confirmModal.confirm({
+        title: "Erro no cadastro",
+        message: mapError(err),
+        confirmText: "OK",
+        confirmVariant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -86,8 +129,10 @@ export default function Signup() {
 
   return (
     <SafeAreaView className="flex-1 bg-brand-900">
-      <ScrollView contentContainerStyle={{ padding: 24, rowGap: 12 }}>
-        <Text className="text-white text-2xl font-extrabold mb-2">Cadastro</Text>
+      <KAVScroll contentContainerStyle={{ padding: 24, rowGap: 12 }}>
+        <Text className="text-white text-2xl font-extrabold mb-2">
+          Cadastro
+        </Text>
 
         <Input
           placeholder="Email"
@@ -172,7 +217,7 @@ export default function Signup() {
           loading={isLoading}
           className="mt-4"
         />
-      </ScrollView>
+      </KAVScroll>
     </SafeAreaView>
   );
 }

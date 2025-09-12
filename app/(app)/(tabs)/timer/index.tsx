@@ -1,17 +1,21 @@
 import { useEffect, useRef, useState } from "react";
-import { View, Text, Alert, AppState, AppStateStatus } from "react-native";
+import { View, Text, AppState, AppStateStatus } from "react-native";
 import { router } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { LIMIT_MS, msToHoursDecimal, pad, splitHHMMSS, todayIso } from "@/Functions";
+import {
+  LIMIT_MS,
+  msToHoursDecimal,
+  pad,
+  splitHHMMSS,
+  todayIso,
+} from "@/Functions";
 import { Button } from "@/components/ui";
+import { useConfirm } from "@/context/ConfirmProvider";
+import { PersistedState } from "@/type";
 
 const STORAGE_KEY = "TIMER_STATE_V1";
 
-type PersistedState = {
-  elapsedMs: number;
-  running: boolean;
-  startedAt?: number;
-};
+
 
 export default function TimerScreen() {
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -23,7 +27,13 @@ export default function TimerScreen() {
 
   const [, setNudge] = useState(0);
 
-  async function saveStateSnap(snapElapsed: number, snapRunning: boolean, snapStartedAt?: number) {
+  const confirm = useConfirm();
+
+  async function saveStateSnap(
+    snapElapsed: number,
+    snapRunning: boolean,
+    snapStartedAt?: number
+  ) {
     try {
       const toSave: PersistedState = {
         elapsedMs: snapElapsed,
@@ -66,7 +76,11 @@ export default function TimerScreen() {
     setRunning(shouldRun);
     startedAtRef.current = shouldRun ? Date.now() : null;
 
-    await saveStateSnap(newElapsed, shouldRun, startedAtRef.current ?? undefined);
+    await saveStateSnap(
+      newElapsed,
+      shouldRun,
+      startedAtRef.current ?? undefined
+    );
   }
 
   useEffect(() => {
@@ -108,7 +122,11 @@ export default function TimerScreen() {
           tickRef.current = null;
         }
         saveStateSnap(LIMIT_MS, false, undefined);
-        Alert.alert("Limite atingido", "O cronômetro atingiu 24h.");
+        confirm.confirm({
+          title: "Limite atingido",
+          message: "O cronômetro atingiu 24h.",
+          confirmText: "OK",
+        });
       } else {
         setNudge((n) => (n + 1) % 1_000_000);
       }
@@ -120,7 +138,7 @@ export default function TimerScreen() {
         tickRef.current = null;
       }
     };
-  }, [running, elapsedMs]);
+  }, [running, elapsedMs, confirm]);
 
   useEffect(() => {
     if (persistRef.current) {
@@ -198,35 +216,44 @@ export default function TimerScreen() {
     await saveStateSnap(0, false, undefined);
   }
 
-  function handleStop() {
+  async function handleStop() {
     const shown = getShownMs();
     const hoursDec = msToHoursDecimal(shown);
 
-    Alert.alert(
-      "Parar cronômetro",
-      "Deseja apenas parar ou salvar o tempo nas anotações?",
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Apenas parar",
-          onPress: () => resetAll(),
-        },
-        {
-          text: "Salvar nas anotações",
-          onPress: async () => {
-            if (shown <= 0) {
-              Alert.alert("Cronômetro zerado", "Não há tempo para salvar.");
-              return;
-            }
-            router.push({
-              pathname: "/(app)/notes/new",
-              params: { hours: String(hoursDec), date: todayIso() },
-            } as any);
-            await resetAll();
-          },
-        },
-      ]
-    );
+    const choice = await confirm.choose({
+      title: "Parar cronômetro",
+      message: "Deseja apenas parar ou salvar o tempo nas anotações?",
+      options: [
+        { key: "stop", label: "Apenas parar", variant: "secondary" },
+        { key: "save", label: "Salvar nas anotações", variant: "primary" },
+      ],
+      cancelText: "Cancelar",
+      dismissible: true,
+    });
+
+    if (choice === "stop") {
+      await resetAll();
+      return;
+    }
+
+    if (choice === "save") {
+      if (shown <= 0) {
+        await confirm.confirm({
+          title: "Cronômetro zerado",
+          message: "Não há tempo para salvar.",
+          confirmText: "OK",
+        });
+        return;
+      }
+
+      router.push({
+        pathname: "/(app)/notes/new",
+        params: { hours: String(hoursDec), date: todayIso() },
+      } as any);
+      await resetAll();
+      return;
+    }
+
   }
 
   const shown = getShownMs();
@@ -242,14 +269,24 @@ export default function TimerScreen() {
       </View>
 
       <View className="flex-row gap-3">
-        <Button title="Início" variant="primary" className="flex-1" onPress={handleInicio} />
+        <Button
+          title="Início"
+          variant="primary"
+          className="flex-1"
+          onPress={handleInicio}
+        />
         <Button
           title={running ? "Pause" : "Play"}
           variant="secondary"
           className="flex-1"
           onPress={handlePlayPause}
         />
-        <Button title="Stop" variant="destructive" className="flex-1" onPress={handleStop} />
+        <Button
+          title="Stop"
+          variant="destructive"
+          className="flex-1"
+          onPress={handleStop}
+        />
       </View>
     </View>
   );

@@ -1,17 +1,9 @@
-// components/ui/DatePicker.tsx
 import React, { useMemo, useState } from "react";
 import { Platform, View, Text, Pressable, Modal } from "react-native";
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
+import { PropsDatePicker } from "@/type";
 
-type Props = {
-  value?: string;
-  onChange: (iso: string) => void;
-  placeholder?: string;
-  minimumDate?: Date;
-  maximumDate?: Date;
-  className?: string;
-  disabled?: boolean;
-};
+
 
 function isoToDate(iso?: string) {
   if (!iso) return new Date();
@@ -30,7 +22,7 @@ function toDisplay(iso?: string) {
   return `${d}/${m}/${y}`;
 }
 
-export default function DatePicker({ value, onChange, placeholder = "dd/MM/yyyy", minimumDate, maximumDate, className, disabled }: Props) {
+export default function DatePicker({ value, onChange, placeholder = "dd/MM/yyyy", minimumDate, maximumDate, className, disabled }: PropsDatePicker) {
   const [show, setShow] = useState(false);
   const baseDate = useMemo(() => isoToDate(value), [value]);
 

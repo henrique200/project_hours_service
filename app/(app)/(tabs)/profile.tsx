@@ -26,27 +26,25 @@ export default function Profile() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      <View className="flex-1 p-4 gap-2">
-        <Text className="text-xl font-extrabold">Meu perfil</Text>
+    <View className="flex-1 p-4 gap-2 bg-white">
+      <Text className="text-xl font-extrabold">Meu perfil</Text>
 
-        <Text>Nome: {user.nomeCompleto || "—"}</Text>
-        <Text>Email: {user.email}</Text>
-        <Text>Nascimento: {nascimento}</Text>
-        <Text>Congregação: {user.congregacao || "—"}</Text>
-        <Text>
-          Cidade/UF: {user.cidade || "—"} / {user.estado || "—"}
-        </Text>
+      <Text>Nome: {user.nomeCompleto || "—"}</Text>
+      <Text>Email: {user.email}</Text>
+      <Text>Nascimento: {nascimento}</Text>
+      <Text>Congregação: {user.congregacao || "—"}</Text>
+      <Text>
+        Cidade/UF: {user.cidade || "—"} / {user.estado || "—"}
+      </Text>
 
-        <View className="mt-4">
-          <Button
-            title="Sair"
-            variant="destructive"
-            onPress={handleLogout}
-            loading={isExiting}
-          />
-        </View>
+      <View className="mt-4">
+        <Button
+          title="Sair"
+          variant="destructive"
+          onPress={handleLogout}
+          loading={isExiting}
+        />
       </View>
-    </SafeAreaView>
+    </View>
   );
 }

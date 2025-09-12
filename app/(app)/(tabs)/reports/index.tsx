@@ -1,36 +1,40 @@
-import { View, Text, FlatList, Alert, ActivityIndicator } from "react-native";
+import { View, Text, FlatList, ActivityIndicator } from "react-native";
 import { useReports } from "../../../../context/ReportsContext";
 import { formatCreatedAt, hoursToHHmm, toDisplayDate } from "@/Functions";
 import { Button } from "@/components/ui";
+import { useConfirm } from "@/context/ConfirmProvider";
 
 export default function ReportsScreen() {
   const { reports, deleteReport, loading, error } = useReports();
+  const confirm = useConfirm();
 
   async function handleDeleteReport(id: string, periodLabel: string) {
-    Alert.alert(
-      "Confirmar exclusão",
-      `Tem certeza que deseja excluir o relatório de ${periodLabel}?`,
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Excluir",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await deleteReport(id);
-            } catch (error) {
-              Alert.alert("Erro", "Não foi possível excluir o relatório.");
-            }
-          },
-        },
-      ]
-    );
+    const ok = await confirm.confirm({
+      title: "Confirmar exclusão",
+      message: `Tem certeza que deseja excluir o relatório de ${periodLabel}?`,
+      confirmText: "Excluir",
+      cancelText: "Cancelar",
+      confirmVariant: "destructive",
+    });
+
+    if (!ok) return;
+
+    try {
+      await deleteReport(id);
+    } catch (err) {
+      await confirm.confirm({
+        title: "Erro",
+        message: "Não foi possível excluir o relatório.",
+        confirmText: "OK",
+        confirmVariant: "destructive",
+      });
+    }
   }
 
   if (loading) {
     return (
       <View className="flex-1 justify-center items-center bg-white">
-        <ActivityIndicator size="large" color="#000" />
+        <ActivityIndicator size="large" />
         <Text className="mt-4 text-gray-600">Carregando relatórios...</Text>
       </View>
     );
@@ -74,16 +78,40 @@ export default function ReportsScreen() {
 
             {item.entries.length ? (
               <View className="gap-1">
-                {item.entries.map((ent, idx) => (
-                  <View key={`${item.id}-${ent.date}-${idx}`} className="flex-row justify-between">
-                    <Text className="text-gray-700 flex-1">
-                      {toDisplayDate(ent.date)} — {hoursToHHmm(ent.hours)}
-                    </Text>
-                    {ent.revisita && (
-                      <Text className="text-blue-600 font-semibold text-sm">• Revisita</Text>
-                    )}
-                  </View>
-                ))}
+                {item.entries.map((ent: any, idx: number) => {
+                  // Compat: pode vir boolean ou objeto {enabled:boolean}
+                  const rv = ent?.revisita;
+                  const es = ent?.estudo;
+
+                  const isRevisita =
+                    !!(typeof rv === "boolean" ? rv : rv?.enabled);
+                  const isEstudo =
+                    !!(typeof es === "boolean" ? es : es?.enabled);
+
+                  return (
+                    <View
+                      key={`${item.id}-${ent.date}-${idx}`}
+                      className="flex-row justify-between items-center"
+                    >
+                      <Text className="text-gray-700 flex-1">
+                        {toDisplayDate(ent.date)} — {hoursToHHmm(ent.hours)}
+                      </Text>
+
+                      <View className="flex-row items-center gap-2">
+                        {isRevisita ? (
+                          <Text className="text-blue-600 font-semibold text-xs">
+                            • Revisita
+                          </Text>
+                        ) : null}
+                        {isEstudo ? (
+                          <Text className="text-violet-700 font-semibold text-xs">
+                            • Estudo
+                          </Text>
+                        ) : null}
+                      </View>
+                    </View>
+                  );
+                })}
               </View>
             ) : (
               <Text className="text-gray-500">Sem anotações neste mês.</Text>
@@ -91,7 +119,8 @@ export default function ReportsScreen() {
 
             <View className="border-t border-gray-200 pt-2 mt-2">
               <Text className="font-semibold text-lg">
-                {item.isClosed ? "Total de horas mensais" : "Total de horas"}: {hoursToHHmm(item.totalHours)}
+                {item.isClosed ? "Total de horas mensais" : "Total de horas"}:{" "}
+                {hoursToHHmm(item.totalHours)}
               </Text>
               <Text className="text-gray-500 text-sm">
                 Criado em {formatCreatedAt(item.createdAt)}

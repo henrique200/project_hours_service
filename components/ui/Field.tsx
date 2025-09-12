@@ -1,14 +1,6 @@
+import { FieldProps } from "@/type";
 import React from "react";
 import { View, Text } from "react-native";
-
-export type FieldProps = {
-  label?: string;
-  required?: boolean;
-  error?: string;
-  children: React.ReactNode;
-  className?: string;
-  labelClassName?: string;
-};
 
 export function Field({
   label,
@@ -21,7 +13,11 @@ export function Field({
   return (
     <View className={["w-full", className].join(" ").trim()}>
       {label ? (
-        <Text className={["mb-1 text-gray-900 font-semibold", labelClassName].join(" ").trim()}>
+        <Text
+          className={["mb-1 text-gray-900 font-semibold", labelClassName]
+            .join(" ")
+            .trim()}
+        >
           {label} {required ? <Text className="text-red-600">*</Text> : null}
         </Text>
       ) : null}

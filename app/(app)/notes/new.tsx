@@ -2,7 +2,7 @@ import { View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useNotes } from "../../../context/NotesContext";
 import NoteForm from "../../../components/NoteForm";
-import type { Note } from "../../../context/NotesContext";
+import { Note } from "@/type";
 
 export default function NewNote() {
   const { addNote } = useNotes();
@@ -13,18 +13,23 @@ export default function NewNote() {
 
   if (typeof params.hours === "string") {
     const n = Number(params.hours);
-    if (Number.isFinite(n)) initial.hours = n; 
+    if (Number.isFinite(n)) initial.hours = n;
   }
 
-  if (typeof params.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(params.date)) {
-    initial.date = params.date; 
+  if (
+    typeof params.date === "string" &&
+    /^\d{4}-\d{2}-\d{2}$/.test(params.date)
+  ) {
+    initial.date = params.date;
   }
 
   return (
     <View className="flex-1 p-4 bg-white">
       <NoteForm
         initial={initial}
-        onSubmit={async (note) => {
+        onSubmit={async (
+          note: Omit<Note, "id" | "userId" | "createdAt" | "updatedAt">
+        ) => {
           await addNote(note);
           router.back();
         }}

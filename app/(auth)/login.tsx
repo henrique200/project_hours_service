@@ -1,16 +1,19 @@
 import { Link, router } from "expo-router";
 import { useEffect, useState } from "react";
-import { View, Text, ActivityIndicator, Alert } from "react-native";
+import { View, Text, ActivityIndicator } from "react-native";
 import { FirebaseError } from "firebase/app";
 import { useAuth } from "../../context/AuthContext";
 import { Button, Field, Input } from "@/components/ui";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useConfirm } from "@/context/ConfirmProvider";
+import KAV from "@/components/ui/KAV";
 
 export default function Login() {
   const { signIn, loading, firebaseUser } = useAuth();
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const confirm = useConfirm();
 
   useEffect(() => {
     if (!loading && firebaseUser) {
@@ -19,7 +22,8 @@ export default function Login() {
   }, [loading, firebaseUser]);
 
   function mapError(e: unknown) {
-    const code = e instanceof FirebaseError ? e.code : (e as any)?.code ?? "unknown";
+    const code =
+      e instanceof FirebaseError ? e.code : (e as any)?.code ?? "unknown";
     switch (code) {
       case "auth/invalid-credential":
       case "auth/invalid-login-credentials":
@@ -43,14 +47,36 @@ export default function Login() {
 
   async function handleLogin() {
     const emailNorm = email.toLowerCase().trim();
-    if (!emailNorm) return Alert.alert("Erro", "Informe o email");
-    if (!senha.trim()) return Alert.alert("Erro", "Informe a senha");
+    if (!emailNorm) {
+      await confirm.confirm({
+        title: "Erro",
+        message: "Informe o email",
+        confirmText: "OK",
+        confirmVariant: "destructive",
+      });
+      return;
+    }
+    if (!senha.trim()) {
+      await confirm.confirm({
+        title: "Erro",
+        message: "Informe a senha",
+        confirmText: "OK",
+        confirmVariant: "destructive",
+      });
+      return;
+    }
+
     try {
       setIsLoading(true);
       await signIn(emailNorm, senha);
       router.replace("/(app)/(tabs)/notes");
     } catch (err) {
-      Alert.alert("Erro no login", mapError(err));
+      await confirm.confirm({
+        title: "Erro no login",
+        message: mapError(err),
+        confirmText: "OK",
+        confirmVariant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -67,56 +93,66 @@ export default function Login() {
 
   return (
     <SafeAreaView className="flex-1 bg-slate-800">
-      <View className="flex-1 p-6 justify-center gap-6">
-        <Text className="text-white text-2xl font-extrabold">Entrar</Text>
+      <KAV>
+        <View className="flex-1 p-6 justify-center gap-6">
+          <Text className="text-white text-2xl font-extrabold">Entrar</Text>
 
-        <View className="bg-white/10 rounded-xl p-4 gap-4">
-          <Field label="Email" required>
-            <Input
-              placeholder="seu@email.com"
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoComplete="email"
-              textContentType="emailAddress"
-              keyboardType="email-address"
-              value={email}
-              onChangeText={setEmail}
-              editable={!isLoading}
-              returnKeyType="next"
+          <View className="bg-white/10 rounded-xl p-4 gap-4">
+            <Field label="Email" required labelClassName="text-white">
+              <Input
+                placeholder="seu@email.com"
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="email"
+                textContentType="emailAddress"
+                keyboardType="email-address"
+                value={email}
+                onChangeText={setEmail}
+                editable={!isLoading}
+                returnKeyType="next"
+              />
+            </Field>
+
+            <Field label="Senha" required labelClassName="text-white">
+              <Input
+                placeholder="Sua senha"
+                secureToggle
+                autoComplete="password"
+                textContentType="password"
+                value={senha}
+                onChangeText={setSenha}
+                editable={!isLoading}
+                returnKeyType="go"
+                onSubmitEditing={handleLogin}
+              />
+            </Field>
+
+            <Button
+              title="Entrar"
+              onPress={handleLogin}
+              loading={isLoading}
+              variant="secondary"
+              className="w-full"
             />
-          </Field>
+          </View>
 
-          <Field label="Senha" required>
-            <Input
-              placeholder="Sua senha"
-              secureToggle
-              autoComplete="password"
-              textContentType="password"
-              value={senha}
-              onChangeText={setSenha}
-              editable={!isLoading}
-              returnKeyType="go"
-              onSubmitEditing={handleLogin}
-            />
-          </Field>
-
-          <Button
-            title="Entrar"
-            onPress={handleLogin}
-            loading={isLoading}
-            variant="secondary"
-            className="w-full"
-          />
+          <Link href="/(auth)/signup" asChild>
+            <Button variant="ghost" size="sm" className="items-center">
+              <Text className="text-white/90">
+                Não tem conta? <Text className="font-semibold">Cadastrar</Text>
+              </Text>
+            </Button>
+          </Link>
+          <Link href="/(auth)/forgot-password" asChild>
+            <Button variant="ghost" size="sm" className="items-center">
+              <Text className="text-white/90">
+                Esqueceu a senha?{" "}
+                <Text className="font-semibold">Recuperar</Text>
+              </Text>
+            </Button>
+          </Link>
         </View>
-
-        <Link href="/(auth)/signup" asChild>
-          <Button variant="ghost" size="sm" className="items-center">
-            <Text className="text-white/90">
-              Não tem conta? <Text className="font-semibold">Cadastrar</Text>
-            </Text>
-          </Button>
-        </Link>
-      </View>
+      </KAV>
     </SafeAreaView>
   );
 }

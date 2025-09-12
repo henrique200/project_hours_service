@@ -5,36 +5,13 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged,
   User,
+  sendPasswordResetEmail,
+  confirmPasswordReset as fbConfirmPasswordReset,
+  updatePassword,
 } from "firebase/auth";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
-// import { auth, db } from "../config/firebase";
-
-export type Profile = {
-  id: string;
-  email: string;
-  nomeCompleto: string;
-  dataNascimento: string; // ISO yyyy-mm-dd
-  congregacao: string;
-  cidade: string;
-  estado: string;
-  createdAt?: any;
-  updatedAt?: any;
-};
-
-type AuthCtx = {
-  user: Profile | null;
-  firebaseUser: User | null;
-  loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (
-    email: string,
-    password: string,
-    profileData: Omit<Profile, "id" | "email" | "createdAt" | "updatedAt">
-  ) => Promise<void>;
-  signOut: () => Promise<void>;
-  updateProfile: (profileData: Partial<Profile>) => Promise<void>;
-};
+import { AuthCtx, Profile } from "@/type";
 
 const Ctx = createContext<AuthCtx | undefined>(undefined);
 
@@ -44,9 +21,7 @@ export const useAuth = () => {
   return ctx;
 };
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<Profile | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,16 +31,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setFirebaseUser(firebaseUser);
 
       if (firebaseUser) {
-        // Buscar dados do perfil no Firestore
         try {
           const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
           if (userDoc.exists()) {
             setUser({ id: firebaseUser.uid, ...userDoc.data() } as Profile);
           } else {
-            // Se não existe perfil no Firestore, criar um básico
             const ref = doc(db, "users", firebaseUser.uid);
-
-            // payload com timestamps do servidor (NÃO colocar no state)
             await setDoc(ref, {
               email: firebaseUser.email || "",
               nomeCompleto: "",
@@ -76,8 +47,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
               createdAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
             });
-
-            // estado local "limpo" sem FieldValue (usa dados mínimos)
             setUser({
               id: firebaseUser.uid,
               email: firebaseUser.email || "",
@@ -105,7 +74,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       setLoading(true);
       await signInWithEmailAndPassword(auth, email, password);
-      // O onAuthStateChanged vai cuidar de atualizar o estado
     } catch (error) {
       setLoading(false);
       throw error;
@@ -119,23 +87,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   ) {
     try {
       setLoading(true);
-      const { user: firebaseUser } = await createUserWithEmailAndPassword(
-        auth,
-        email,
-        password
-      );
+      const { user: fu } = await createUserWithEmailAndPassword(auth, email, password);
 
-      // Salvar dados do perfil no Firestore
       const profile: Profile = {
-        id: firebaseUser.uid,
-        email: firebaseUser.email || "",
+        id: fu.uid,
+        email: fu.email || "",
         ...profileData,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
 
-      await setDoc(doc(db, "users", firebaseUser.uid), profile);
-      // O onAuthStateChanged vai cuidar de atualizar o estado
+      await setDoc(doc(db, "users", fu.uid), profile);
     } catch (error) {
       setLoading(false);
       throw error;
@@ -153,23 +115,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   async function updateProfile(profileData: Partial<Profile>) {
     if (!firebaseUser) throw new Error("Usuário não está logado");
-
     try {
-      const updatedData = {
-        ...profileData,
-        updatedAt: serverTimestamp(),
-      };
-
-      await setDoc(doc(db, "users", firebaseUser.uid), updatedData, {
-        merge: true,
-      });
-
-      // Atualizar estado local
+      const updatedData = { ...profileData, updatedAt: serverTimestamp() };
+      await setDoc(doc(db, "users", firebaseUser.uid), updatedData, { merge: true });
       setUser((prev) => (prev ? { ...prev, ...updatedData } : null));
     } catch (error) {
       console.error("Erro ao atualizar perfil:", error);
       throw error;
     }
+  }
+
+  // 🔹 NOVO: enviar e-mail de redefinição
+  async function resetPassword(email: string) {
+    await sendPasswordResetEmail(auth, email /*, actionCodeSettings opcional */);
+  }
+
+  // 🔹 NOVO: confirmar redefinição com o código do e-mail
+  async function confirmPasswordReset(oobCode: string, newPassword: string) {
+    await fbConfirmPasswordReset(auth, oobCode, newPassword);
+  }
+
+  // 🔹 NOVO: alterar senha estando logado (não é o caso de “perdi a senha”, mas útil)
+  async function changePassword(newPassword: string) {
+    if (!auth.currentUser) throw new Error("Usuário não está logado");
+    await updatePassword(auth.currentUser, newPassword);
   }
 
   const value: AuthCtx = {
@@ -180,6 +149,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     signUp,
     signOut,
     updateProfile,
+    // novos
+    resetPassword,
+    confirmPasswordReset,
+    changePassword,
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

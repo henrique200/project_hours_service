@@ -1,23 +1,8 @@
+import { ButtonProps, Size, Variant } from "@/type";
 import React from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
-type Variant = "primary" | "secondary" | "accent" | "outline" | "destructive" | "ghost";
-type Size = "sm" | "md" | "lg";
 
-export type ButtonProps = {
-  title?: string;
-  children?: React.ReactNode;
-  onPress?: () => void;
-  disabled?: boolean;
-  loading?: boolean;
-  variant?: Variant;
-  size?: Size;
-  leftIcon?: React.ReactNode;
-  rightIcon?: React.ReactNode;
-  className?: string;
-  textClassName?: string;
-  testID?: string;
-};
 
 const variantClasses: Record<Variant, { container: string; text: string; border?: string }> = {
   primary:     { container: "bg-brand-900",  text: "text-white" },

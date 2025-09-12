@@ -14,44 +14,15 @@ import {
 } from "firebase/firestore";
 import { useAuth } from "./AuthContext";
 import { db } from "@/lib/firebase";
-
-export type Note = {
-  id: string;
-  date: string;
-  hours: number;
-  locationNotes?: string;
-  actions: string[];
-  revisita: {
-    enabled: boolean;
-    nome?: string;
-    numeroCasa?: string;
-    celular?: string;
-    data?: string;
-    horario?: string;
-  };
-  monthKey?: string;     // extra para consultas por mês
-  userId?: string;       // Firebase
-  createdAt?: any;       // Firebase
-  updatedAt?: any;       // Firebase
-};
-
-type NotesCtx = {
-  notes: Note[];
-  loading: boolean;
-  error: string | null;
-  addNote: (n: Omit<Note, "id" | "userId" | "createdAt" | "updatedAt">) => Promise<void>;
-  updateNote: (n: Note) => Promise<void>;
-  deleteNote: (id: string) => Promise<void>;
-  getNote: (id: string) => Note | undefined;
-  clearAll: () => Promise<void>;
-};
+import { Note, NotesCtx } from "@/type";
 
 const COLLECTION_NAME = "notes";
 const Ctx = createContext<NotesCtx | undefined>(undefined);
 
 export const useNotes = () => {
   const ctx = useContext(Ctx);
-  if (!ctx) throw new Error("useNotes deve ser usado dentro de <NotesProvider>");
+  if (!ctx)
+    throw new Error("useNotes deve ser usado dentro de <NotesProvider>");
   return ctx;
 };
 
@@ -73,7 +44,9 @@ function pruneUndefined<T>(value: T): T {
   return value;
 }
 
-export const NotesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const NotesProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const { user } = useAuth();
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
@@ -90,7 +63,11 @@ export const NotesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setError(null);
 
     const notesRef = collection(db, COLLECTION_NAME);
-    const qy = query(notesRef, where("userId", "==", user.id), orderBy("date", "desc"));
+    const qy = query(
+      notesRef,
+      where("userId", "==", user.id),
+      orderBy("date", "desc")
+    );
 
     const unsubscribe = onSnapshot(
       qy,
@@ -98,7 +75,7 @@ export const NotesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const list: Note[] = [];
         snap.forEach((d) => {
           const data = d.data() as any;
-          if ("id" in data) delete data.id;        // ✅ evita sobrescrever com id do payload
+          if ("id" in data) delete data.id; // ✅ evita sobrescrever com id do payload
           list.push({ ...(data as any), id: d.id } as Note); // ✅ doc.id vence
         });
         setNotes(list);
@@ -114,7 +91,9 @@ export const NotesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return () => unsubscribe && unsubscribe();
   }, [user?.id]);
 
-  async function addNote(noteData: Omit<Note, "id" | "userId" | "createdAt" | "updatedAt">) {
+  async function addNote(
+    noteData: Omit<Note, "id" | "userId" | "createdAt" | "updatedAt">
+  ) {
     if (!user?.id) throw new Error("Usuário não está logado");
     try {
       const notesRef = collection(db, COLLECTION_NAME);
@@ -186,6 +165,15 @@ export const NotesProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }
 
-  const value: NotesCtx = { notes, loading, error, addNote, updateNote, deleteNote, getNote, clearAll };
+  const value: NotesCtx = {
+    notes,
+    loading,
+    error,
+    addNote,
+    updateNote,
+    deleteNote,
+    getNote,
+    clearAll,
+  };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 };

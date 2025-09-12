@@ -1,55 +1,14 @@
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import {
-  collection,
-  doc,
-  addDoc,
-  deleteDoc,
-  getDocs,
-  query,
-  where,
-  orderBy,
-  serverTimestamp,
-  onSnapshot,
-  setDoc,
+  collection, doc, deleteDoc, query, where, orderBy,
+  serverTimestamp, onSnapshot, setDoc,
 } from "firebase/firestore";
-// import { db } from "../config/firebase";
 import { useAuth } from "./AuthContext";
-import { Note } from "./NotesContext";
 import { db } from "@/lib/firebase";
+import { Note, Report, ReportEntry, ReportsCtx } from "@/type";
 
-export type ReportEntry = {
-  date: string; // yyyy-mm-dd
-  hours: number;
-  revisita: boolean;
-};
-
-export type Report = {
-  id: string;
-  month: string;
-  periodLabel: string;
-  entries: ReportEntry[];
-  totalHours: number;
-  isClosed: boolean;
-  createdAt?: any;    // Timestamp | undefined
-  userId?: string;
-  updatedAt?: any;
-};
-
-
-type ReportsCtx = {
-  reports: Report[];
-  loading: boolean;
-  error: string | null;
-  generateAndSaveCurrentMonth: (notes: Note[]) => Promise<Report>;
-  deleteReport: (id: string) => Promise<void>;
-  findByMonth: (yyyyMM: string) => Report | undefined;
-};
+// ✅ para fallback em notas antigas sem campo "estudo"
+import { A_REV_3_ESTUDO, A_REV_3_ESTUDO_SF } from "@/constants/noteActions";
 
 const COLLECTION_NAME = "reports";
 
@@ -57,14 +16,12 @@ const Ctx = createContext<ReportsCtx | undefined>(undefined);
 
 export const useReports = () => {
   const ctx = useContext(Ctx);
-  if (!ctx)
-    throw new Error("useReports deve ser usado dentro de <ReportsProvider>");
+  if (!ctx) throw new Error("useReports deve ser usado dentro de <ReportsProvider>");
   return ctx;
 };
 
 function monthFromDateISO(dateISO: string) {
-  // "2025-09-03" -> "2025-09"
-  return dateISO.slice(0, 7);
+  return dateISO.slice(0, 7); // "2025-09-03" -> "2025-09"
 }
 
 function monthLabel(yyyyMM: string) {
@@ -72,33 +29,30 @@ function monthLabel(yyyyMM: string) {
   const y = Number(yStr);
   const m = Number(mStr);
 
-  // Trata números inválidos sem usar "??"
   const now = new Date();
   const year = Number.isFinite(y) ? y : now.getFullYear();
-  const monthIndex =
-    Number.isFinite(m) && m >= 1 && m <= 12 ? m - 1 : now.getMonth();
+  const monthIndex = Number.isFinite(m) && m >= 1 && m <= 12 ? m - 1 : now.getMonth();
 
   const dt = new Date(year, monthIndex, 1);
-  const formatter = new Intl.DateTimeFormat("pt-BR", {
-    month: "long",
-    year: "numeric",
-  });
+  const formatter = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" });
   const label = formatter.format(dt);
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
 function isClosedMonth(yyyyMM: string) {
   const now = new Date();
-  const current = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
-    2,
-    "0"
-  )}`;
+  const current = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   return yyyyMM !== current;
 }
 
-export const ReportsProvider: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => {
+// helper: aceita boolean antigo OU objeto { enabled }
+function isEnabledField(val: any): boolean {
+  if (typeof val === "boolean") return val;
+  if (val && typeof val === "object" && "enabled" in val) return !!val.enabled;
+  return false;
+}
+
+export const ReportsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
@@ -114,13 +68,8 @@ export const ReportsProvider: React.FC<{ children: React.ReactNode }> = ({
     setLoading(true);
     setError(null);
 
-    // Configurar listener em tempo real para os relatórios do usuário
     const reportsRef = collection(db, COLLECTION_NAME);
-    const q = query(
-      reportsRef,
-      where("userId", "==", user.id),
-      orderBy("month", "desc")
-    );
+    const q = query(reportsRef, where("userId", "==", user.id), orderBy("month", "desc"));
 
     const unsubscribe = onSnapshot(
       q,
@@ -139,11 +88,7 @@ export const ReportsProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     );
 
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    };
+    return () => unsubscribe?.();
   }, [user?.id]);
 
   function findByMonth(yyyyMM: string) {
@@ -162,36 +107,42 @@ export const ReportsProvider: React.FC<{ children: React.ReactNode }> = ({
   }
 
   async function generateAndSaveCurrentMonth(notes: Note[]) {
-    if (!user?.id) {
-      throw new Error("Usuário não está logado");
-    }
+    if (!user?.id) throw new Error("Usuário não está logado");
 
     try {
       const now = new Date();
-      const yyyyMM = `${now.getFullYear()}-${String(
-        now.getMonth() + 1
-      ).padStart(2, "0")}`;
+      const yyyyMM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
-      // filtra notas do mês atual
-      const monthNotes = notes.filter(
-        (n) => monthFromDateISO(n.date) === yyyyMM
-      );
+      // Apenas notas do mês
+      const monthNotes = notes.filter((n) => monthFromDateISO(n.date) === yyyyMM);
 
-      // agrega por dia (não editável)
-      const entries = monthNotes
+      // 🔁 agrega por dia (somente leitura no relatório)
+      const entries: ReportEntry[] = monthNotes
         .sort((a, b) => a.date.localeCompare(b.date))
-        .map<ReportEntry>((n) => ({
-          date: n.date,
-          hours: n.hours,
-          revisita: Boolean(n.revisita?.enabled),
-        }));
+        .map<ReportEntry>((n) => {
+          // revisita moderno (union) OU boolean legado
+          const revisita = isEnabledField(n.revisita);
 
-      const totalHours = Number(
-        entries.reduce((sum, e) => sum + e.hours, 0).toFixed(2)
-      );
+          // estudo moderno (union) OU legado via ações da 3ª revisita
+          const estudoFromField = isEnabledField((n as any).estudo);
+          const estudoFromActions =
+            Array.isArray(n.actions) &&
+            n.actions.some((a) => a === A_REV_3_ESTUDO || a === A_REV_3_ESTUDO_SF);
+
+          const estudo = Boolean(estudoFromField || estudoFromActions);
+
+          return {
+            date: n.date,
+            hours: n.hours,
+            revisita,
+            estudo,
+          };
+        });
+
+      const totalHours = Number(entries.reduce((sum, e) => sum + e.hours, 0).toFixed(2));
 
       const report: Report = {
-        id: `${user.id}-${yyyyMM}`, // ID único baseado no usuário e mês
+        id: `${user.id}-${yyyyMM}`,
         month: yyyyMM,
         periodLabel: monthLabel(yyyyMM),
         entries,
@@ -201,17 +152,16 @@ export const ReportsProvider: React.FC<{ children: React.ReactNode }> = ({
         userId: user.id,
       };
 
-      // Usar setDoc para sobrescrever o relatório do mesmo mês se existir
       const reportRef = doc(db, COLLECTION_NAME, report.id);
       await setDoc(
         reportRef,
         {
           ...report,
-          createdAt: serverTimestamp(), // padroniza com server time
+          createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         },
         { merge: true }
-      ); // merge preserva createdAt se já existir
+      );
 
       return report;
     } catch (error) {
