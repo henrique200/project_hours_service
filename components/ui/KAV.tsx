@@ -79,6 +79,7 @@ export function KAVScroll({
     <ScrollView
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
+      style={{flex: 1}}
       contentContainerStyle={[{ paddingBottom: contentBottomPadding }, contentContainerStyle]}
       {...scrollProps}
     >

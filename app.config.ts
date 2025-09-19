@@ -20,14 +20,14 @@ export default (): ExpoConfig => ({
     resizeMode: "contain",
     backgroundColor: "#ffffff",
   },
-  ios: { supportsTablet: true },
+  ios: { supportsTablet: true, bundleIdentifier: "com.henrique200.horasservico"},
   android: {
     adaptiveIcon: {
       foregroundImage: "./assets/images/adaptive-background-1024.png",
       backgroundColor: "#ffffff",
     },
     edgeToEdgeEnabled: true,
-    package: "com.seunome.horasservico",
+    package: "com.henrique200.horasservico",
   },
   web: {
     bundler: "metro",
