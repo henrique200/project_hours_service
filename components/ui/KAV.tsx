@@ -1,4 +1,3 @@
-// components/layout/KAV.tsx
 import React from "react";
 import {
   KeyboardAvoidingView,
@@ -15,11 +14,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 type BaseProps = {
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
-  /** Fecha o teclado ao tocar fora dos inputs (default: true) */
   dismissOnTapOutside?: boolean;
-  /** Offset extra além do topo da safe-area (ex.: altura do header) */
   extraOffset?: number;
-  /** Força um behavior específico (default: padding no iOS, height no Android) */
   behavior?: "height" | "position" | "padding";
 };
 
@@ -53,15 +49,11 @@ export default function KAV({
 }
 
 type KAVScrollProps = BaseProps & {
-  /** Estilo do conteúdo do ScrollView */
   contentContainerStyle?: StyleProp<ViewStyle>;
-  /** Props adicionais para o ScrollView */
   scrollProps?: Omit<ScrollViewProps, "contentContainerStyle">;
-  /** paddingBottom extra no conteúdo (para não esconder botões) */
   contentBottomPadding?: number;
 };
 
-/** Versão com ScrollView embutido (ideal para formulários longos) */
 export function KAVScroll({
   children,
   style,

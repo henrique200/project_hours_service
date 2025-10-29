@@ -26,7 +26,6 @@ export const useNotes = () => {
   return ctx;
 };
 
-// remove undefined recursivamente (objetos/arrays)
 function pruneUndefined<T>(value: T): T {
   if (Array.isArray(value)) {
     return value

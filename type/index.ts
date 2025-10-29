@@ -1,4 +1,3 @@
-import { User } from "firebase/auth";
 import { TextInputProps } from "react-native";
 
 type PersistedState = {
@@ -24,7 +23,7 @@ type Variant =
   | "outline"
   | "destructive"
   | "ghost";
-type Size = "sm" | "md" | "lg";
+type Size = "sm" | "md" | "lg" | "iconsSized";
 
 type ButtonProps = {
   title?: string;
@@ -146,7 +145,6 @@ type ConfirmContextType = {
   choose(opts: ConfirmOptions & { options: Option[] }): Promise<string | null>;
 };
 
-// Tipos utilitários (opcional, mas deixa mais limpo)
 type Revisita =
   | { enabled: false }
   | {

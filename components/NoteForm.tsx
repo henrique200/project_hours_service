@@ -319,7 +319,6 @@ export default function NoteForm({ initial, onSubmit }: NoteFormProps) {
               {isStudy ? "Dados do Estudo" : "Dados da Revisita"}
             </Text>
 
-            {/* Nome */}
             <Labeled
               label={`${isStudy ? "Nome do estudante *" : "Nome do morador *"}`}
             >
@@ -330,7 +329,6 @@ export default function NoteForm({ initial, onSubmit }: NoteFormProps) {
               />
             </Labeled>
 
-            {/* Número da casa */}
             <Labeled label="Número da casa *">
               <Input
                 value={isStudy ? estNumeroCasa : numeroCasa}
@@ -340,7 +338,6 @@ export default function NoteForm({ initial, onSubmit }: NoteFormProps) {
               />
             </Labeled>
 
-            {/* Celular (opcional) */}
             <Labeled
               label={`${
                 isStudy ? "Celular do estudante" : "Celular (opcional)"
@@ -354,7 +351,6 @@ export default function NoteForm({ initial, onSubmit }: NoteFormProps) {
               />
             </Labeled>
 
-            {/* Data/Dia */}
             <Labeled
               label={`${
                 isStudy
@@ -368,7 +364,6 @@ export default function NoteForm({ initial, onSubmit }: NoteFormProps) {
               />
             </Labeled>
 
-            {/* Horário */}
             <Labeled
               label={`${
                 isStudy
@@ -386,7 +381,6 @@ export default function NoteForm({ initial, onSubmit }: NoteFormProps) {
               />
             </Labeled>
 
-            {/* Endereço (opcional) */}
             <Labeled label="Endereço (opcional)">
               <Input
                 value={isStudy ? estEndereco : endereco}
@@ -396,7 +390,6 @@ export default function NoteForm({ initial, onSubmit }: NoteFormProps) {
               />
             </Labeled>
 
-            {/* Material (opcional) - só em estudo */}
             {isStudy && (
               <Labeled label='Material do estudo (opcional) — ex.: "Seja Feliz para Sempre"'>
                 <Input

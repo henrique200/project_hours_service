@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useAuth } from "../../../context/AuthContext";
 import { toDisplayDate } from "@/Functions";
 import { Button } from "@/components/ui";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function Profile() {
   const { user, signOut } = useAuth();

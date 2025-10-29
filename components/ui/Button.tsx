@@ -13,12 +13,14 @@ const variantClasses: Record<Variant, { container: string; text: string; border?
   outline:     { container: "bg-transparent", text: "text-brand-900", border: "border border-brand-900" },
   destructive: { container: "bg-red-600",    text: "text-white" },
   ghost:       { container: "bg-transparent", text: "text-gray-900" },
+
 };
 
 const sizeClasses: Record<Size, string> = {
   sm: "px-3 py-2 rounded-lg",
   md: "px-4 py-3 rounded-xl",
   lg: "px-5 py-4 rounded-2xl",
+  iconsSized: "",
 };
 
 export function Button({
@@ -40,7 +42,6 @@ export function Button({
   const v = variantClasses[variant];
   const isDisabled = disabled || loading;
 
-  // 🎯 Ícone baseado na prop `icon`
   const renderIcon = () => {
     const color = v.text.includes("text-white") ? "#fff" : "#000";
 

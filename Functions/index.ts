@@ -31,6 +31,29 @@ function hoursToHHmm(h: number | undefined) {
   )}`;
 }
 
+function hoursAndMinutesInLabels(h: number | undefined) {
+  if (!Number.isFinite(h)) return "";
+
+  const clamped = Math.max(0, Math.min(24, Number(h)));
+
+  let totalMinutes = Math.round(clamped * 60);
+  const MAX_MINUTES = 24 * 60;
+  if (totalMinutes > MAX_MINUTES) totalMinutes = MAX_MINUTES;
+
+  let hours = Math.floor(totalMinutes / 60);
+  let minutes = totalMinutes % 60;
+
+  if (hours === 24) minutes = 0;
+
+  const hStr = String(hours).padStart(2, "0");
+  const mStr = String(minutes).padStart(2, "0");
+  const hLabel = hours === 1 ? "hora" : "horas";
+  const mLabel = minutes === 1 ? "minuto" : "minutos";
+
+  return `${hStr} ${hLabel} e ${mStr} ${mLabel}`;
+}
+
+
 function hhmmToHours(s: string) {
   const m = /^(\d{1,2}):([0-5]\d)$/.exec(s.trim());
   if (!m) return null;
@@ -88,5 +111,6 @@ export {
   splitHHMMSS,
   msToHoursDecimal,
   todayIso,
-  formatCreatedAt
+  formatCreatedAt,
+  hoursAndMinutesInLabels
 };
