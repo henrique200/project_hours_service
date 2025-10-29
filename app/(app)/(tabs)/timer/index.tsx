@@ -174,13 +174,6 @@ export default function TimerScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function handleInicio() {
-    setElapsedMs(0);
-    setRunning(true);
-    startedAtRef.current = Date.now();
-    await saveStateSnap(0, true, startedAtRef.current);
-  }
-
   async function handlePlayPause() {
     if (running) {
       const now = Date.now();
@@ -251,7 +244,6 @@ export default function TimerScreen() {
       await resetAll();
       return;
     }
-
   }
 
   const shown = getShownMs();
@@ -266,23 +258,17 @@ export default function TimerScreen() {
         <Text className="text-gray-500 mt-2">Limite: 24:00:00</Text>
       </View>
 
-      <View className="flex-row gap-3">
-        <Button
-          icon="init"
-          variant="primary"
-          className="flex-1"
-          onPress={handleInicio}
-        />
+      <View className="flex-row gap-3 items-center justify-center">
         <Button
           icon={running ? "pause" : "play"}
           variant="secondary"
-          className="flex-1"
+          className="rounded-full w-[50px] h-[50px]"
           onPress={handlePlayPause}
         />
         <Button
           icon="stop"
           variant="destructive"
-          className="flex-1"
+          className="rounded-full w-[50px] h-[50px]"
           onPress={handleStop}
         />
       </View>
