@@ -142,9 +142,24 @@ export default function NotesList() {
 
           return (
             <View className="border border-gray-200 rounded-xl p-3 gap-2">
+              <View className="flex-row items-center justify-between">
+              
               <Text className="font-extrabold">
                 {toDisplayDate(item.date)} — {hoursToHHmm(item.hours)}
               </Text>
+              <View className="flex-row gap-2">
+                <Link href={`/(app)/notes/${item.id}`} asChild>
+                  <Button icon="edit" className=""  variant="outline"  />
+                </Link>
+
+                <Button
+                  icon="delete"
+                  variant="destructive"
+                  className=""
+                  onPress={() => handleDeleteNote(item.id)}
+                />
+              </View>
+              </View>
 
               {item.locationNotes ? (
                 <Text className="text-gray-600 text-justify">{item.locationNotes}</Text>
@@ -231,18 +246,7 @@ export default function NotesList() {
                 <Text className="text-gray-500">Sem revisita/estudo</Text>
               )}
 
-              <View className="flex-row gap-2 mt-2">
-                <Link href={`/(app)/notes/${item.id}`} asChild>
-                  <Button title="Editar" variant="outline" className="flex-1" />
-                </Link>
-
-                <Button
-                  title="Excluir"
-                  variant="destructive"
-                  className="flex-1"
-                  onPress={() => handleDeleteNote(item.id)}
-                />
-              </View>
+              
             </View>
           );
         }}

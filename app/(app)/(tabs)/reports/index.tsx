@@ -11,6 +11,7 @@ import { Button } from "@/components/ui";
 import { useConfirm } from "@/context/ConfirmProvider";
 import { shareReportPdf, saveReportPdfToDownloads } from "@/utils/reportPdf";
 import { useAuth } from "@/context/AuthContext";
+import { Entypo, FontAwesome } from "@expo/vector-icons";
 
 export default function ReportsScreen() {
   const { reports, deleteReport, loading, error } = useReports();
@@ -176,19 +177,22 @@ export default function ReportsScreen() {
 
             <View className="flex-row gap-2 mt-2">
               <Button
-                title="Compartilhar PDF"
+                icon="share"
+                sizeIcon={20}
                 variant="secondary"
                 onPress={() => handleShare(item)}
               />
               {Platform.OS !== "ios" && (
                 <Button
-                  title="Salvar PDF"
+                  icon="save"
+                  sizeIcon={20}
                   variant="outline"
                   onPress={() => handleSave(item)}
                 />
               )}
               <Button
-                title="Excluir"
+                icon="delete"
+                sizeIcon={20}
                 variant="destructive"
                 onPress={() => handleDeleteReport(item.id, item.periodLabel)}
               />

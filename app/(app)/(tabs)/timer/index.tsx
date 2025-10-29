@@ -15,8 +15,6 @@ import { PersistedState } from "@/type";
 
 const STORAGE_KEY = "TIMER_STATE_V1";
 
-
-
 export default function TimerScreen() {
   const [elapsedMs, setElapsedMs] = useState(0);
   const [running, setRunning] = useState(false);
@@ -270,19 +268,19 @@ export default function TimerScreen() {
 
       <View className="flex-row gap-3">
         <Button
-          title="Início"
+          icon="init"
           variant="primary"
           className="flex-1"
           onPress={handleInicio}
         />
         <Button
-          title={running ? "Pause" : "Play"}
+          icon={running ? "pause" : "play"}
           variant="secondary"
           className="flex-1"
           onPress={handlePlayPause}
         />
         <Button
-          title="Stop"
+          icon="stop"
           variant="destructive"
           className="flex-1"
           onPress={handleStop}

@@ -1,8 +1,10 @@
-import { ButtonProps, Size, Variant } from "@/type";
 import React from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
 
+import {Entypo, AntDesign, Ionicons, FontAwesome, MaterialCommunityIcons} from "@expo/vector-icons"
+
+import { ButtonProps, Size, Variant } from "@/type";
 
 const variantClasses: Record<Variant, { container: string; text: string; border?: string }> = {
   primary:     { container: "bg-brand-900",  text: "text-white" },
@@ -29,12 +31,50 @@ export function Button({
   size = "md",
   leftIcon,
   rightIcon,
+  icon,
   className = "",
   textClassName = "",
   testID,
+  sizeIcon = 16,
 }: ButtonProps) {
   const v = variantClasses[variant];
   const isDisabled = disabled || loading;
+
+  // 🎯 Ícone baseado na prop `icon`
+  const renderIcon = () => {
+    const color = v.text.includes("text-white") ? "#fff" : "#000";
+
+    switch (icon) {
+      case "edit":
+        return <Entypo name="edit" size={sizeIcon} color={color} />;
+      case "delete":
+        return <AntDesign name="delete" size={sizeIcon} color={color} />;
+
+        case "play": 
+          return <FontAwesome name="play" size={sizeIcon} color="white" />;
+
+        case "pause": 
+          return <Ionicons name="pause" size={sizeIcon} color='white' />;
+
+        case "stop":
+          return <FontAwesome name="stop" size={sizeIcon} color={color} />
+
+        case 'init':
+          return <AntDesign name="playcircleo" size={sizeIcon} color={color} />;
+
+        case 'share':
+          return <Entypo name="share" size={sizeIcon} color={color} />
+
+        case 'save':
+          return <FontAwesome name="save" size={sizeIcon} color={color} />
+
+
+      default:
+        return null;
+    }
+  };
+
+  const onlyIcon = !title && !children && icon;
 
   return (
     <Pressable
@@ -53,6 +93,8 @@ export function Button({
     >
       {loading ? (
         <ActivityIndicator color={v.text.includes("text-white") ? "#fff" : "#000"} />
+      ) : onlyIcon ? (
+        renderIcon()
       ) : (
         <>
           {leftIcon ? <View>{leftIcon}</View> : null}
