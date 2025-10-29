@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, TouchableOpacity } from "react-native";
 import Checkbox from "expo-checkbox";
+import * as yup from "yup";
 
 import { Labeled } from "./Label";
 
@@ -17,8 +18,109 @@ import DatePicker from "./ui/DatePicker";
 import { Button, Input } from "./ui";
 
 import { useConfirm } from "@/context/ConfirmProvider";
-import { Note, NoteFormProps } from "@/type";
-import KAV, { KAVScroll } from "./ui/KAV";
+import { Note, NoteFormProps, Revisita, Estudo } from "@/type";
+import { KAVScroll } from "./ui/KAV";
+
+const HHMM_MSG = "Use o formato HH:mm (ex.: 02:30).";
+const HHMM_REGEX = /^(\d{1,2}):([0-5]\d)$/;
+
+function getSchema(isStudy: boolean, revisitaEnabled: boolean) {
+  return yup.object({
+    dateIso: yup.string().required("Informe a data."),
+    hoursHHmm: yup
+      .string()
+      .required("Informe as horas.")
+      .test("hhmm-format", HHMM_MSG, (v) => !!v && HHMM_REGEX.test(v))
+      .test(
+        "hhmm-range",
+        "Valores entre 00:00 e 24:00.",
+        (v) => v != null && hhmmToHours(v) !== null
+      ),
+    locationNotes: yup.string().optional(),
+
+    actions: yup.array(yup.string().required()).ensure().required(),
+
+    revisitaEnabled: yup.boolean().required(),
+
+    nome: yup.string().when([], {
+      is: () => revisitaEnabled && !isStudy,
+      then: (s) => s.trim().required("Informe o nome do morador."),
+      otherwise: (s) => s.optional(),
+    }),
+    numeroCasa: yup.string().when([], {
+      is: () => revisitaEnabled && !isStudy,
+      then: (s) => s.trim().required("Informe o nº da casa."),
+      otherwise: (s) => s.optional(),
+    }),
+    dataRevIso: yup.string().when([], {
+      is: () => revisitaEnabled && !isStudy,
+      then: (s) => s.required("Informe a data combinada."),
+      otherwise: (s) => s.optional(),
+    }),
+    horaRev: yup.string().when([], {
+      is: () => revisitaEnabled && !isStudy,
+      then: (s) =>
+        s
+          .required("Informe o horário combinado.")
+          .test("hhmm-format", HHMM_MSG, (v) => !!v && HHMM_REGEX.test(v)),
+      otherwise: (s) => s.optional(),
+    }),
+    celular: yup.string().optional(),
+    endereco: yup.string().optional(),
+
+    estNome: yup.string().when([], {
+      is: () => isStudy,
+      then: (s) => s.trim().required("Informe o nome do estudante."),
+      otherwise: (s) => s.optional(),
+    }),
+    estNumeroCasa: yup.string().when([], {
+      is: () => isStudy,
+      then: (s) => s.trim().required("Informe o nº da casa."),
+      otherwise: (s) => s.optional(),
+    }),
+    estDiaIso: yup.string().when([], {
+      is: () => isStudy,
+      then: (s) => s.required("Informe o dia do estudo."),
+      otherwise: (s) => s.optional(),
+    }),
+    estHorario: yup.string().when([], {
+      is: () => isStudy,
+      then: (s) =>
+        s
+          .required("Informe o horário do estudo.")
+          .test("hhmm-format", HHMM_MSG, (v) => !!v && HHMM_REGEX.test(v)),
+      otherwise: (s) => s.optional(),
+    }),
+    estCelular: yup.string().optional(),
+    estEndereco: yup.string().optional(),
+    estMaterial: yup.string().optional(),
+  });
+}
+
+type Values = {
+  dateIso: string;
+  hoursHHmm: string;
+  locationNotes: string;
+  actions: string[];
+
+  revisitaEnabled: boolean;
+  nome: string;
+  numeroCasa: string;
+  celular: string;
+  dataRevIso: string;
+  horaRev: string;
+  endereco: string;
+
+  estNome: string;
+  estNumeroCasa: string;
+  estCelular: string;
+  estDiaIso: string;
+  estHorario: string;
+  estEndereco: string;
+  estMaterial: string;
+};
+
+type Errors = Partial<Record<keyof Values, string>>;
 
 export default function NoteForm({ initial, onSubmit }: NoteFormProps) {
   const todayIso = useMemo(() => {
@@ -135,134 +237,180 @@ export default function NoteForm({ initial, onSubmit }: NoteFormProps) {
     });
   }
 
-  async function validate(): Promise<boolean> {
-    const h = hhmmToHours(hoursHHmm);
-    if (h === null) {
-      await confirm.confirm({
-        title: "Horas inválidas",
-        message:
-          "Use o formato HH:mm (ex.: 02:30) e valores entre 00:00 e 24:00.",
-        confirmText: "OK",
-        confirmVariant: "destructive",
-      });
-      return false;
-    }
+  const [touched, setTouched] = useState<
+    Partial<Record<keyof Values, boolean>>
+  >({});
+  const [errors, setErrors] = useState<Errors>({});
+  const [formError, setFormError] = useState<string | null>(null);
 
-    if (revisitaEnabled || isStudy) {
-      if (isStudy) {
-        if (
-          !estNome.trim() ||
-          !estNumeroCasa.trim() ||
-          !estDiaIso ||
-          !estHorario.trim()
-        ) {
-          await confirm.confirm({
-            title: "Estudo",
-            message:
-              "Nome, nº da casa, dia e horário (HH:mm) são obrigatórios.",
-            confirmText: "OK",
-          });
-          return false;
-        }
-        if (!/^(\d{1,2}):([0-5]\d)$/.test(estHorario)) {
-          await confirm.confirm({
-            title: "Estudo",
-            message:
-              "O horário do estudo deve estar no formato HH:mm (ex.: 14:30).",
-            confirmText: "OK",
-          });
-          return false;
-        }
-      } else {
-        if (
-          !nome.trim() ||
-          !numeroCasa.trim() ||
-          !dataRevIso ||
-          !horaRev.trim()
-        ) {
-          await confirm.confirm({
-            title: "Revisita",
-            message:
-              "Quando marcar 'Sim', nome, nº da casa, data e horário (HH:mm) são obrigatórios.",
-            confirmText: "OK",
-          });
-          return false;
-        }
-        if (!/^(\d{1,2}):([0-5]\d)$/.test(horaRev)) {
-          await confirm.confirm({
-            title: "Revisita",
-            message:
-              "O horário combinado deve estar no formato HH:mm (ex.: 14:30).",
-            confirmText: "OK",
-          });
-          return false;
-        }
+  const values: Values = {
+    dateIso,
+    hoursHHmm,
+    locationNotes,
+    actions,
+
+    revisitaEnabled,
+    nome,
+    numeroCasa,
+    celular,
+    dataRevIso,
+    horaRev,
+    endereco,
+
+    estNome,
+    estNumeroCasa,
+    estCelular,
+    estDiaIso,
+    estHorario,
+    estEndereco,
+    estMaterial,
+  };
+
+  function schema() {
+    return getSchema(isStudy, revisitaEnabled);
+  }
+
+  function toErrorMap(err: yup.ValidationError): Errors {
+    const out: Errors = {};
+    for (const i of err.inner.length ? err.inner : [err]) {
+      if (i.path && !out[i.path as keyof Values]) {
+        out[i.path as keyof Values] = i.message;
       }
     }
+    return out;
+  }
 
-    return true;
+  async function validateField<K extends keyof Values>(
+    name: K,
+    val: Values[K]
+  ) {
+    try {
+      await schema().validateAt(name as string, { ...values, [name]: val });
+      setErrors((e) => ({ ...e, [name]: undefined }));
+    } catch (err) {
+      if (err instanceof yup.ValidationError) {
+        setErrors((e) => ({ ...e, [name]: err.message }));
+      }
+    }
   }
 
   async function handleSave() {
-    const isValid = await validate();
-    if (!isValid) return;
+    setFormError(null);
+    try {
+      const parsed = await schema().validate(values, { abortEarly: false });
+      setErrors({});
 
-    const hoursNumber = hhmmToHours(hoursHHmm)!;
+      const hoursNumber = hhmmToHours(parsed.hoursHHmm)!;
 
-    const revisita =
-      !isStudy && revisitaEnabled
+      const revisita: Revisita =
+        !isStudy && parsed.revisitaEnabled
+          ? {
+              enabled: true,
+              nome: parsed.nome!.trim(),
+              numeroCasa: parsed.numeroCasa!.trim(),
+              data: parsed.dataRevIso!,
+              horario: parsed.horaRev!.trim(),
+              ...(parsed.celular?.trim()
+                ? { celular: parsed.celular.trim() }
+                : {}),
+              ...(parsed.endereco?.trim()
+                ? { endereco: parsed.endereco.trim() }
+                : {}),
+            }
+          : { enabled: false };
+
+      const estudo: Estudo = isStudy
         ? {
-            enabled: true as const,
-            nome: nome.trim(),
-            numeroCasa: numeroCasa.trim(),
-            ...(celular.trim() ? { celular: celular.trim() } : {}),
-            data: dataRevIso,
-            horario: horaRev.trim(),
-            ...(endereco.trim() ? { endereco: endereco.trim() } : {}),
+            enabled: true,
+            nome: parsed.estNome!.trim(),
+            numeroCasa: parsed.estNumeroCasa!.trim(),
+            dia: parsed.estDiaIso!,
+            horario: parsed.estHorario!.trim(),
+            ...(parsed.estCelular?.trim()
+              ? { celular: parsed.estCelular.trim() }
+              : {}),
+            ...(parsed.estEndereco?.trim()
+              ? { endereco: parsed.estEndereco.trim() }
+              : {}),
+            ...(parsed.estMaterial?.trim()
+              ? { material: parsed.estMaterial.trim() }
+              : {}),
           }
-        : { enabled: false as const };
+        : { enabled: false };
 
-    const estudo = isStudy
-      ? {
-          enabled: true as const,
-          nome: estNome.trim(),
-          numeroCasa: estNumeroCasa.trim(),
-          ...(estCelular.trim() ? { celular: estCelular.trim() } : {}),
-          dia: estDiaIso,
-          horario: estHorario.trim(),
-          ...(estEndereco.trim() ? { endereco: estEndereco.trim() } : {}),
-          ...(estMaterial.trim() ? { material: estMaterial.trim() } : {}),
-        }
-      : { enabled: false as const };
+      const built: Note = {
+        id: initial?.id ?? String(Date.now()),
+        date: parsed.dateIso,
+        hours: hoursNumber,
+        actions: parsed.actions,
+        ...(parsed.locationNotes?.trim()
+          ? { locationNotes: parsed.locationNotes.trim() }
+          : {}),
+        revisita,
+        estudo,
+      };
 
-    const built: Note = {
-      id: initial?.id ?? String(Date.now()),
-      date: dateIso,
-      hours: hoursNumber,
-      actions,
-      ...(locationNotes.trim() ? { locationNotes: locationNotes.trim() } : {}),
-      revisita,
-      estudo,
-    };
-
-    onSubmit(built);
+      onSubmit(built);
+    } catch (err) {
+      if (err instanceof yup.ValidationError) {
+        setErrors(toErrorMap(err));
+        setTouched((t) => ({
+          ...t,
+          dateIso: true,
+          hoursHHmm: true,
+          nome: true,
+          numeroCasa: true,
+          dataRevIso: true,
+          horaRev: true,
+          estNome: true,
+          estNumeroCasa: true,
+          estDiaIso: true,
+          estHorario: true,
+        }));
+        setFormError("Corrija os campos destacados.");
+        return;
+      }
+      setFormError("Não foi possível salvar. Tente novamente.");
+    }
   }
 
   return (
     <KAVScroll contentContainerStyle={{ paddingBottom: 32 }}>
       <View className="gap-y-[14px] p-1">
+        {formError ? (
+          <View className="bg-red-500/20 border border-red-500 rounded-lg p-3">
+            <Text className="text-black\">{formError}</Text>
+          </View>
+        ) : null}
+
         <Labeled label="Data (dd/MM/yyyy)">
-          <DatePicker value={dateIso} onChange={setDateIso} />
+          <DatePicker
+            value={dateIso}
+            onChange={(v) => {
+              if (!touched.dateIso)
+                setTouched((t) => ({ ...t, dateIso: true }));
+              setDateIso(v);
+              validateField("dateIso", v);
+            }}
+          />
         </Labeled>
+        {touched.dateIso && errors.dateIso ? (
+          <Text className="text-red-600 mt-1 text-xs">{errors.dateIso}</Text>
+        ) : null}
 
         <Labeled label="Horas trabalhadas (HH:mm)">
           <Input
             value={hoursHHmm}
-            onChangeText={setHoursHHmm}
+            onChangeText={(t) => setHoursHHmm(t)}
+            onBlur={() => {
+              setTouched((t) => ({ ...t, hoursHHmm: true }));
+              validateField("hoursHHmm", hoursHHmm);
+            }}
             placeholder="02:30"
             keyboardType="numbers-and-punctuation"
             autoCapitalize="none"
             returnKeyType="next"
+            error={touched.hoursHHmm ? errors.hoursHHmm : undefined}
           />
         </Labeled>
 
@@ -325,7 +473,19 @@ export default function NoteForm({ initial, onSubmit }: NoteFormProps) {
               <Input
                 value={isStudy ? estNome : nome}
                 onChangeText={isStudy ? setEstNome : setNome}
+                onBlur={() => {
+                  const key = isStudy ? "estNome" : "nome";
+                  setTouched((tt) => ({ ...tt, [key]: true }));
+                  validateField(key, (values as any)[key]);
+                }}
                 returnKeyType="next"
+                error={
+                  (isStudy ? touched.estNome : touched.nome)
+                    ? isStudy
+                      ? errors.estNome
+                      : errors.nome
+                    : undefined
+                }
               />
             </Labeled>
 
@@ -333,8 +493,20 @@ export default function NoteForm({ initial, onSubmit }: NoteFormProps) {
               <Input
                 value={isStudy ? estNumeroCasa : numeroCasa}
                 onChangeText={isStudy ? setEstNumeroCasa : setNumeroCasa}
+                onBlur={() => {
+                  const key = isStudy ? "estNumeroCasa" : "numeroCasa";
+                  setTouched((tt) => ({ ...tt, [key]: true }));
+                  validateField(key, (values as any)[key]);
+                }}
                 inputMode="numeric"
                 returnKeyType="next"
+                error={
+                  (isStudy ? touched.estNumeroCasa : touched.numeroCasa)
+                    ? isStudy
+                      ? errors.estNumeroCasa
+                      : errors.numeroCasa
+                    : undefined
+                }
               />
             </Labeled>
 
@@ -360,9 +532,22 @@ export default function NoteForm({ initial, onSubmit }: NoteFormProps) {
             >
               <DatePicker
                 value={isStudy ? estDiaIso : dataRevIso}
-                onChange={isStudy ? setEstDiaIso : setDataRevIso}
+                onChange={(v) => {
+                  const key = isStudy ? "estDiaIso" : "dataRevIso";
+                  if (!touched[key])
+                    setTouched((tt) => ({ ...tt, [key]: true }));
+                  if (isStudy) setEstDiaIso(v);
+                  else setDataRevIso(v);
+                  validateField(key, v);
+                }}
               />
             </Labeled>
+            {(isStudy ? touched.estDiaIso : touched.dataRevIso) &&
+            (isStudy ? errors.estDiaIso : errors.dataRevIso) ? (
+              <Text className="text-red-600 mt-1 text-xs">
+                {(isStudy ? errors.estDiaIso : errors.dataRevIso) as string}
+              </Text>
+            ) : null}
 
             <Labeled
               label={`${
@@ -374,10 +559,22 @@ export default function NoteForm({ initial, onSubmit }: NoteFormProps) {
               <Input
                 value={isStudy ? estHorario : horaRev}
                 onChangeText={isStudy ? setEstHorario : setHoraRev}
+                onBlur={() => {
+                  const key = isStudy ? "estHorario" : "horaRev";
+                  setTouched((tt) => ({ ...tt, [key]: true }));
+                  validateField(key, (values as any)[key]);
+                }}
                 placeholder="14:30"
                 keyboardType="numbers-and-punctuation"
                 autoCapitalize="none"
                 returnKeyType="next"
+                error={
+                  (isStudy ? touched.estHorario : touched.horaRev)
+                    ? isStudy
+                      ? errors.estHorario
+                      : errors.horaRev
+                    : undefined
+                }
               />
             </Labeled>
 

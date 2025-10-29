@@ -38,7 +38,15 @@ type ButtonProps = {
   className?: string;
   textClassName?: string;
   testID?: string;
-  icon?: 'edit' | 'delete' | 'play' | 'pause' | 'stop' | 'init' | 'share' | 'save';
+  icon?:
+    | "edit"
+    | "delete"
+    | "play"
+    | "pause"
+    | "stop"
+    | "init"
+    | "share"
+    | "save";
   sizeIcon?: number;
 };
 
@@ -253,4 +261,6 @@ export type {
   ReportEntry,
   Report,
   ReportsCtx,
+  Revisita,
+  Estudo,
 };

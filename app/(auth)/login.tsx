@@ -1,19 +1,43 @@
 import { Link, router } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { View, Text, ActivityIndicator } from "react-native";
 import { FirebaseError } from "firebase/app";
+import { SafeAreaView } from "react-native-safe-area-context";
+import * as yup from "yup";
+
 import { useAuth } from "../../context/AuthContext";
 import { Button, Field, Input } from "@/components/ui";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useConfirm } from "@/context/ConfirmProvider";
 import KAV from "@/components/ui/KAV";
 
+type LoginValues = { email: string; senha: string };
+type LoginErrors = Partial<Record<keyof LoginValues, string>>;
+
+const loginSchema = yup.object({
+  email: yup
+    .string()
+    .trim()
+    .lowercase()
+    .email("Email inválido.")
+    .required("Informe o email."),
+  senha: yup
+    .string()
+    .trim()
+    .min(6, "A senha deve ter pelo menos 6 caracteres.")
+    .required("Informe a senha."),
+});
+
 export default function Login() {
   const { signIn, loading, firebaseUser } = useAuth();
-  const [email, setEmail] = useState("");
-  const [senha, setSenha] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const confirm = useConfirm();
+
+  const [values, setValues] = useState<LoginValues>({ email: "", senha: "" });
+  const [errors, setErrors] = useState<LoginErrors>({});
+  const [touched, setTouched] = useState<
+    Partial<Record<keyof LoginValues, boolean>>
+  >({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && firebaseUser) {
@@ -45,35 +69,56 @@ export default function Login() {
     }
   }
 
-  async function handleLogin() {
-    const emailNorm = email.toLowerCase().trim();
-    if (!emailNorm) {
-      await confirm.confirm({
-        title: "Erro",
-        message: "Informe o email",
-        confirmText: "OK",
-        confirmVariant: "destructive",
-      });
-      return;
+  function toErrorMap(err: yup.ValidationError): LoginErrors {
+    const out: LoginErrors = {};
+    for (const i of err.inner.length ? err.inner : [err]) {
+      if (i.path && !out[i.path as keyof LoginValues]) {
+        out[i.path as keyof LoginValues] = i.message;
+      }
     }
-    if (!senha.trim()) {
-      await confirm.confirm({
-        title: "Erro",
-        message: "Informe a senha",
-        confirmText: "OK",
-        confirmVariant: "destructive",
-      });
-      return;
-    }
+    return out;
+  }
 
+  async function validateField<K extends keyof LoginValues>(
+    name: K,
+    val: string
+  ) {
     try {
+      await loginSchema.validateAt(name, { ...values, [name]: val });
+      setErrors((e) => ({ ...e, [name]: undefined }));
+    } catch (err) {
+      if (err instanceof yup.ValidationError) {
+        setErrors((e) => ({ ...e, [name]: err.message }));
+      }
+    }
+  }
+
+  function handleChange<K extends keyof LoginValues>(name: K, val: string) {
+    setValues((v) => ({ ...v, [name]: val }));
+    if (touched[name]) {
+      validateField(name, val);
+    }
+  }
+
+  async function handleSubmit() {
+    setFormError(null);
+    try {
+      const parsed = await loginSchema.validate(values, { abortEarly: false });
+      setErrors({});
       setIsLoading(true);
-      await signIn(emailNorm, senha);
+      await signIn(parsed.email, parsed.senha);
       router.replace("/(app)/(tabs)/notes");
     } catch (err) {
+      if (err instanceof yup.ValidationError) {
+        setErrors(toErrorMap(err));
+        setTouched({ email: true, senha: true });
+        setFormError("Corrija os campos destacados.");
+        return;
+      }
+      const msg = mapError(err);
       await confirm.confirm({
         title: "Erro no login",
-        message: mapError(err),
+        message: msg,
         confirmText: "OK",
         confirmVariant: "destructive",
       });
@@ -98,6 +143,12 @@ export default function Login() {
           <Text className="text-white text-2xl font-extrabold">Entrar</Text>
 
           <View className="bg-white/10 rounded-xl p-4 gap-4">
+            {formError ? (
+              <View className="bg-red-500/20 border border-red-500 rounded-lg p-3">
+                <Text className="text-red-100">{formError}</Text>
+              </View>
+            ) : null}
+
             <Field label="Email" required labelClassName="text-white">
               <Input
                 placeholder="seu@email.com"
@@ -106,10 +157,15 @@ export default function Login() {
                 autoComplete="email"
                 textContentType="emailAddress"
                 keyboardType="email-address"
-                value={email}
-                onChangeText={setEmail}
+                value={values.email}
+                onChangeText={(t) => handleChange("email", t)}
+                onBlur={() => {
+                  setTouched((t) => ({ ...t, email: true }));
+                  validateField("email", values.email);
+                }}
                 editable={!isLoading}
                 returnKeyType="next"
+                error={touched.email ? errors.email : undefined}
               />
             </Field>
 
@@ -119,17 +175,22 @@ export default function Login() {
                 secureToggle
                 autoComplete="password"
                 textContentType="password"
-                value={senha}
-                onChangeText={setSenha}
+                value={values.senha}
+                onChangeText={(t) => handleChange("senha", t)}
+                onBlur={() => {
+                  setTouched((t) => ({ ...t, senha: true }));
+                  validateField("senha", values.senha);
+                }}
                 editable={!isLoading}
                 returnKeyType="go"
-                onSubmitEditing={handleLogin}
+                onSubmitEditing={handleSubmit}
+                error={touched.senha ? errors.senha : undefined}
               />
             </Field>
 
             <Button
               title="Entrar"
-              onPress={handleLogin}
+              onPress={handleSubmit}
               loading={isLoading}
               variant="secondary"
               className="w-full"
@@ -143,6 +204,7 @@ export default function Login() {
               </Text>
             </Button>
           </Link>
+
           <Link href="/(auth)/forgot-password" asChild>
             <Button variant="ghost" size="sm" className="items-center">
               <Text className="text-white/90">
