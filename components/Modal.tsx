@@ -16,7 +16,7 @@ export default function Modal({
   dismissible = true,
   children,
   backdropClassName = "bg-black/50",
-  contentClassName = "bg-white rounded-2xl p-5 w-11/12 max-w-[380px]",
+  contentClassName = "bg-white rounded-2xl p-5 w-11/12 ",
   testID,
 }: ModalProps) {
   const opacity = useRef(new Animated.Value(0)).current;
@@ -39,7 +39,7 @@ export default function Modal({
   return (
     <RNModal
       transparent
-      animationType="none"
+      animationType="fade"
       visible={open}
       onRequestClose={onClose}
       statusBarTranslucent
