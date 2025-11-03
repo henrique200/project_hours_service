@@ -1,38 +1,29 @@
-import {
-  View,
-  Text,
-  FlatList,
-  ActivityIndicator,
-  Platform,
-} from "react-native";
+import { View, Text, FlatList, ActivityIndicator } from "react-native";
 import { useReports } from "../../../../context/ReportsContext";
 import { formatCreatedAt, hoursToHHmm, toDisplayDate } from "@/Functions";
 import { Button } from "@/components/ui";
 import { useConfirm } from "@/context/ConfirmProvider";
-import { shareReportPdf, saveReportPdfToDownloads } from "@/utils/reportPdf";
+import { shareReportPdf } from "@/utils/reportPdf";
 import { useAuth } from "@/context/AuthContext";
-import { Entypo, FontAwesome } from "@expo/vector-icons";
 
 export default function ReportsScreen() {
   const { reports, deleteReport, loading, error } = useReports();
   const { user } = useAuth();
-  const confirm = useConfirm();
+  const { confirm, askRessalva } = useConfirm();
 
   async function handleDeleteReport(id: string, periodLabel: string) {
-    const ok = await confirm.confirm({
+    const ok = await confirm({
       title: "Confirmar exclusão",
       message: `Tem certeza que deseja excluir o relatório de ${periodLabel}?`,
       confirmText: "Excluir",
       cancelText: "Cancelar",
       confirmVariant: "destructive",
     });
-
     if (!ok) return;
-
     try {
       await deleteReport(id);
-    } catch (err) {
-      await confirm.confirm({
+    } catch {
+      await confirm({
         title: "Erro",
         message: "Não foi possível excluir o relatório.",
         confirmText: "OK",
@@ -41,33 +32,31 @@ export default function ReportsScreen() {
     }
   }
 
-  async function handleShare(item: any) {
-    try {
-      await shareReportPdf(item, { author: user?.nomeCompleto || user?.email });
-    } catch (e) {
-      await confirm.confirm({
-        title: "Erro ao compartilhar",
-        message: "Não foi possível compartilhar o PDF.",
-        confirmText: "OK",
-        confirmVariant: "destructive",
-      });
-    }
+  function buildNotesFromRessalva(res: { testemunhoPublico?: boolean }) {
+    const notes: string[] = [];
+    if (res.testemunhoPublico) notes.push("Testemunho público");
+    return notes.length ? notes.join(" • ") : undefined;
   }
 
-  async function handleSave(item: any) {
+  async function handleShare(item: any) {
     try {
-      await saveReportPdfToDownloads(item, {
+      const res = await askRessalva({
+        title: "Ressalva do mês",
+        periodLabel: item?.periodLabel,
+        confirmText: "Sim",
+        cancelText: "Não",
+      });
+
+      await shareReportPdf(item, {
         author: user?.nomeCompleto || user?.email,
+        name: user?.nomeCompleto || undefined,
+        includeHours: res.includeHours,
+        notes: buildNotesFromRessalva(res),
       });
-      await confirm.confirm({
-        title: "PDF salvo",
-        message: "O arquivo foi salvo na pasta escolhida.",
-        confirmText: "OK",
-      });
-    } catch (e) {
-      await confirm.confirm({
-        title: "Erro ao salvar PDF",
-        message: "Tente compartilhar o PDF ou verifique as permissões.",
+    } catch {
+      await confirm({
+        title: "Erro ao compartilhar",
+        message: "Não foi possível compartilhar o PDF.",
         confirmText: "OK",
         confirmVariant: "destructive",
       });
@@ -182,14 +171,6 @@ export default function ReportsScreen() {
                 variant="secondary"
                 onPress={() => handleShare(item)}
               />
-              {Platform.OS !== "ios" && (
-                <Button
-                  icon="save"
-                  sizeIcon={20}
-                  variant="outline"
-                  onPress={() => handleSave(item)}
-                />
-              )}
               <Button
                 icon="delete"
                 sizeIcon={20}
