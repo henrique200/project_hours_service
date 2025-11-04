@@ -62,6 +62,8 @@ export function Button({
         return <Entypo name="share" size={sizeIcon} color={color} />;
       case "save":
         return <FontAwesome name="save" size={sizeIcon} color={color} />;
+      case "close":
+        return <AntDesign name="close" size={sizeIcon} color={color} />;
       default:
         return null;
     }

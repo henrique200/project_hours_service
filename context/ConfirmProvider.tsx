@@ -6,17 +6,34 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { View, Text } from "react-native";
+import { View, Text, TouchableOpacity } from "react-native";
 import Checkbox from "expo-checkbox";
 import Modal from "@/components/Modal";
 import { Button } from "@/components/ui";
+import AntDesign from "@expo/vector-icons/AntDesign";
+
+type Variant = "primary" | "secondary" | "destructive";
 
 type ConfirmOptions = {
   title?: string;
   message?: string;
   confirmText?: string;
   cancelText?: string;
-  confirmVariant?: "primary" | "secondary" | "destructive";
+  confirmVariant?: Variant;
+};
+
+type ChooseOption = {
+  key: string;
+  label: string;
+  variant?: Variant;
+};
+
+type ChooseOptions = {
+  title?: string;
+  message?: string;
+  options: ChooseOption[];
+  cancelText?: string;
+  dismissible?: boolean;
 };
 
 type RessalvaOptions = {
@@ -37,6 +54,7 @@ export type RessalvaResult = {
 type ConfirmContextValue = {
   confirm: (opts: ConfirmOptions) => Promise<boolean>;
   askRessalva: (opts?: RessalvaOptions) => Promise<RessalvaResult>;
+  choose: (opts: ChooseOptions) => Promise<string | undefined>;
 };
 
 const ConfirmContext = createContext<ConfirmContextValue | undefined>(
@@ -46,7 +64,8 @@ const ConfirmContext = createContext<ConfirmContextValue | undefined>(
 type Mode =
   | { type: "none" }
   | ({ type: "confirm" } & ConfirmOptions)
-  | ({ type: "ressalva" } & RessalvaOptions);
+  | ({ type: "ressalva" } & RessalvaOptions)
+  | ({ type: "choose" } & ChooseOptions);
 
 export function ConfirmProvider({ children }: { children: React.ReactNode }) {
   const resolverRef = useRef<((v: unknown) => void) | null>(null);
@@ -75,6 +94,14 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const choose = useCallback((opts: ChooseOptions) => {
+    return new Promise<string | undefined>((resolve) => {
+      resolverRef.current = resolve as (v: unknown) => void;
+      setMode({ type: "choose", ...opts });
+      setVisible(true);
+    });
+  }, []);
+
   const askRessalva = useCallback((opts?: RessalvaOptions) => {
     return new Promise<RessalvaResult>((resolve) => {
       resolverRef.current = resolve as (v: unknown) => void;
@@ -98,6 +125,12 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
         answeredYes: false,
       } as RessalvaResult);
       close();
+      return;
+    }
+    if (mode.type === "choose") {
+      resolverRef.current?.(undefined);
+      close();
+      return;
     }
   }, [mode, close]);
 
@@ -117,19 +150,24 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
         answeredYes: true,
       } as RessalvaResult);
       close();
+      return;
     }
   }, [mode, close, pioneiro, missionario, testemunhoPublico]);
 
   const value = useMemo<ConfirmContextValue>(
-    () => ({ confirm, askRessalva }),
-    [confirm, askRessalva]
+    () => ({ confirm, askRessalva, choose }),
+    [confirm, askRessalva, choose]
   );
 
   return (
     <ConfirmContext.Provider value={value}>
       {children}
 
-      <Modal open={visible} onClose={onCancel} dismissible>
+      <Modal
+        open={visible}
+        onClose={onCancel}
+        dismissible={mode.type === "choose" ? !!mode.dismissible : true}
+      >
         {mode.type === "confirm" && (
           <View>
             {mode.title ? (
@@ -149,6 +187,39 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
               >
                 {mode.confirmText ?? "Confirmar"}
               </Button>
+            </View>
+          </View>
+        )}
+
+        {mode.type === "choose" && (
+          <View>
+            <View className="flex-row  items-center justify-between">
+              {mode.title ? (
+                <Text className="text-lg font-bold mb-1">{mode.title}</Text>
+              ) : null}
+
+              <TouchableOpacity onPress={onCancel}>
+                <AntDesign name="close" size={16} color="red" />
+              </TouchableOpacity>
+            </View>
+            {mode.message ? (
+              <Text className="text-gray-700 mb-4">{mode.message}</Text>
+            ) : null}
+
+            <View className="flex-row items-center justify-center gap-2 mt-2">
+              {mode.options.map((opt) => (
+                <Button
+                  key={opt.key}
+                  variant={opt.variant ?? "primary"}
+                  onPress={() => {
+                    resolverRef.current?.(opt.key);
+                    close();
+                  }}
+                >
+                  {opt.label}
+                </Button>
+              ))}
+
             </View>
           </View>
         )}

@@ -46,7 +46,8 @@ type ButtonProps = {
     | "stop"
     | "init"
     | "share"
-    | "save";
+    | "save"
+    | "close";
   sizeIcon?: number;
 };
 
