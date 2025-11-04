@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { View, Text, TouchableOpacity } from "react-native";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  TouchableWithoutFeedback,
+  Keyboard,
+} from "react-native";
 import Checkbox from "expo-checkbox";
 import * as yup from "yup";
 
@@ -19,7 +28,6 @@ import { Button, Input } from "./ui";
 
 import { useConfirm } from "@/context/ConfirmProvider";
 import { Note, NoteFormProps, Revisita, Estudo } from "@/type";
-import { KAVScroll } from "./ui/KAV";
 
 const HHMM_MSG = "Use o formato HH:mm (ex.: 02:30).";
 const HHMM_REGEX = /^(\d{1,2}):([0-5]\d)$/;
@@ -375,233 +383,244 @@ export default function NoteForm({ initial, onSubmit }: NoteFormProps) {
   }
 
   return (
-    <KAVScroll contentContainerStyle={{ paddingBottom: 32 }}>
-      <View className="gap-y-[14px] p-1">
-        {formError ? (
-          <View className="bg-red-500/20 border border-red-500 rounded-lg p-3">
-            <Text className="text-black\">{formError}</Text>
-          </View>
-        ) : null}
+    <KeyboardAvoidingView
+      className="flex-1"
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <ScrollView className="pb-8" showsVerticalScrollIndicator={false}>
+          <View className="gap-y-[14px] p-1">
+            {formError ? (
+              <View className="bg-red-500/20 border border-red-500 rounded-lg p-3">
+                <Text className="text-black">{formError}</Text>
+              </View>
+            ) : null}
 
-        <Labeled label="Data (dd/MM/yyyy)">
-          <DatePicker
-            value={dateIso}
-            onChange={(v) => {
-              if (!touched.dateIso)
-                setTouched((t) => ({ ...t, dateIso: true }));
-              setDateIso(v);
-              validateField("dateIso", v);
-            }}
-          />
-        </Labeled>
-        {touched.dateIso && errors.dateIso ? (
-          <Text className="text-red-600 mt-1 text-xs">{errors.dateIso}</Text>
-        ) : null}
-
-        <Labeled label="Horas trabalhadas (HH:mm)">
-          <Input
-            value={hoursHHmm}
-            onChangeText={(t) => setHoursHHmm(t)}
-            onBlur={() => {
-              setTouched((t) => ({ ...t, hoursHHmm: true }));
-              validateField("hoursHHmm", hoursHHmm);
-            }}
-            placeholder="02:30"
-            keyboardType="numbers-and-punctuation"
-            autoCapitalize="none"
-            returnKeyType="next"
-            error={touched.hoursHHmm ? errors.hoursHHmm : undefined}
-          />
-        </Labeled>
-
-        <Labeled label="Observações do local (opcional)">
-          <Input
-            value={locationNotes}
-            onChangeText={setLocationNotes}
-            placeholder="Ex.: casa azul, portão fechado"
-            multiline
-            numberOfLines={3}
-            textAlignVertical="top"
-            returnKeyType="default"
-          />
-        </Labeled>
-
-        <Text className="text-base font-semibold">Ações realizadas</Text>
-        <View className="gap-[10px]">
-          {ACTIONS_ALL.map((label, index) => (
-            <TouchableOpacity
-              className="flex-row items-center gap-2"
-              key={index}
-              onPress={() => toggleAction(label)}
-            >
-              <Checkbox
-                value={actions.includes(label)}
-                onValueChange={() => toggleAction(label)}
-              />
-              <Text className="flex-1">{label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <Text className="font-semibold text-base mt-2">
-          Marcou alguma revisita?
-        </Text>
-        <View className="flex-row items-center gap-x-3">
-          <TouchableOpacity
-            onPress={() => setRevisitaEnabled(!revisitaEnabled)}
-            className="flex-row items-center gap-x-2"
-            disabled={isStudy}
-          >
-            <Checkbox
-              value={isStudy ? true : revisitaEnabled}
-              onValueChange={setRevisitaEnabled}
-            />
-            <Text>{isStudy ? "Sim (virou Estudo)" : "Sim"}</Text>
-          </TouchableOpacity>
-          {!isStudy && !revisitaEnabled && <Text>Não</Text>}
-        </View>
-
-        {(revisitaEnabled || isStudy) && (
-          <View className="gap-y-[10px] p-[10px] border border-[#ddd] rounded-lg">
-            <Text className="font-semibold text-base mb-1">
-              {isStudy ? "Dados do Estudo" : "Dados da Revisita"}
-            </Text>
-
-            <Labeled
-              label={`${isStudy ? "Nome do estudante *" : "Nome do morador *"}`}
-            >
-              <Input
-                value={isStudy ? estNome : nome}
-                onChangeText={isStudy ? setEstNome : setNome}
-                onBlur={() => {
-                  const key = isStudy ? "estNome" : "nome";
-                  setTouched((tt) => ({ ...tt, [key]: true }));
-                  validateField(key, (values as any)[key]);
-                }}
-                returnKeyType="next"
-                error={
-                  (isStudy ? touched.estNome : touched.nome)
-                    ? isStudy
-                      ? errors.estNome
-                      : errors.nome
-                    : undefined
-                }
-              />
-            </Labeled>
-
-            <Labeled label="Número da casa *">
-              <Input
-                value={isStudy ? estNumeroCasa : numeroCasa}
-                onChangeText={isStudy ? setEstNumeroCasa : setNumeroCasa}
-                onBlur={() => {
-                  const key = isStudy ? "estNumeroCasa" : "numeroCasa";
-                  setTouched((tt) => ({ ...tt, [key]: true }));
-                  validateField(key, (values as any)[key]);
-                }}
-                inputMode="numeric"
-                returnKeyType="next"
-                error={
-                  (isStudy ? touched.estNumeroCasa : touched.numeroCasa)
-                    ? isStudy
-                      ? errors.estNumeroCasa
-                      : errors.numeroCasa
-                    : undefined
-                }
-              />
-            </Labeled>
-
-            <Labeled
-              label={`${
-                isStudy ? "Celular do estudante" : "Celular (opcional)"
-              }`}
-            >
-              <Input
-                value={isStudy ? estCelular : celular}
-                onChangeText={isStudy ? setEstCelular : setCelular}
-                inputMode="tel"
-                returnKeyType="next"
-              />
-            </Labeled>
-
-            <Labeled
-              label={`${
-                isStudy
-                  ? "Dia do estudo * (dd/MM/yyyy)"
-                  : "Data combinada * (dd/MM/yyyy)"
-              }`}
-            >
+            <Labeled label="Data (dd/MM/yyyy)">
               <DatePicker
-                value={isStudy ? estDiaIso : dataRevIso}
+                value={dateIso}
                 onChange={(v) => {
-                  const key = isStudy ? "estDiaIso" : "dataRevIso";
-                  if (!touched[key])
-                    setTouched((tt) => ({ ...tt, [key]: true }));
-                  if (isStudy) setEstDiaIso(v);
-                  else setDataRevIso(v);
-                  validateField(key, v);
+                  if (!touched.dateIso)
+                    setTouched((t) => ({ ...t, dateIso: true }));
+                  setDateIso(v);
+                  validateField("dateIso", v);
                 }}
               />
             </Labeled>
-            {(isStudy ? touched.estDiaIso : touched.dataRevIso) &&
-            (isStudy ? errors.estDiaIso : errors.dataRevIso) ? (
+            {touched.dateIso && errors.dateIso ? (
               <Text className="text-red-600 mt-1 text-xs">
-                {(isStudy ? errors.estDiaIso : errors.dataRevIso) as string}
+                {errors.dateIso}
               </Text>
             ) : null}
 
-            <Labeled
-              label={`${
-                isStudy
-                  ? "Horário do estudo * (HH:mm)"
-                  : "Horário combinado * (HH:mm)"
-              }`}
-            >
+            <Labeled label="Horas trabalhadas (HH:mm)">
               <Input
-                value={isStudy ? estHorario : horaRev}
-                onChangeText={isStudy ? setEstHorario : setHoraRev}
+                value={hoursHHmm}
+                onChangeText={(t) => setHoursHHmm(t)}
                 onBlur={() => {
-                  const key = isStudy ? "estHorario" : "horaRev";
-                  setTouched((tt) => ({ ...tt, [key]: true }));
-                  validateField(key, (values as any)[key]);
+                  setTouched((t) => ({ ...t, hoursHHmm: true }));
+                  validateField("hoursHHmm", hoursHHmm);
                 }}
-                placeholder="14:30"
+                placeholder="Ex: hh:mm(horas e minutos: dois digitos cada)"
                 keyboardType="numbers-and-punctuation"
                 autoCapitalize="none"
                 returnKeyType="next"
-                error={
-                  (isStudy ? touched.estHorario : touched.horaRev)
-                    ? isStudy
-                      ? errors.estHorario
-                      : errors.horaRev
-                    : undefined
-                }
+                error={touched.hoursHHmm ? errors.hoursHHmm : undefined}
               />
             </Labeled>
 
-            <Labeled label="Endereço (opcional)">
+            <Labeled label="Observações do local (opcional)">
               <Input
-                value={isStudy ? estEndereco : endereco}
-                onChangeText={isStudy ? setEstEndereco : setEndereco}
-                placeholder="Rua, nº, bairro..."
-                returnKeyType="next"
+                value={locationNotes}
+                onChangeText={setLocationNotes}
+                placeholder="Ex.: casa azul, portão fechado"
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+                returnKeyType="default"
               />
             </Labeled>
 
-            {isStudy && (
-              <Labeled label='Material do estudo (opcional) — ex.: "Seja Feliz para Sempre"'>
-                <Input
-                  value={estMaterial}
-                  onChangeText={setEstMaterial}
-                  placeholder="Publicação/material"
-                  returnKeyType="done"
-                />
-              </Labeled>
-            )}
-          </View>
-        )}
+            <Text className="text-base font-semibold">Ações realizadas</Text>
+            <View className="gap-[10px]">
+              {ACTIONS_ALL.map((label, index) => (
+                <TouchableOpacity
+                  className="flex-row items-center gap-2"
+                  key={index}
+                  onPress={() => toggleAction(label)}
+                >
+                  <Checkbox
+                    value={actions.includes(label)}
+                    onValueChange={() => toggleAction(label)}
+                  />
+                  <Text className="flex-1">{label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
 
-        <Button title="Salvar" variant="primary" onPress={handleSave} />
-      </View>
-    </KAVScroll>
+            <Text className="font-semibold text-base mt-2">
+              Marcou alguma revisita?
+            </Text>
+            <View className="flex-row items-center gap-x-3">
+              <TouchableOpacity
+                onPress={() => setRevisitaEnabled(!revisitaEnabled)}
+                className="flex-row items-center gap-x-2"
+                disabled={isStudy}
+              >
+                <Checkbox
+                  value={isStudy ? true : revisitaEnabled}
+                  onValueChange={setRevisitaEnabled}
+                />
+                <Text>{isStudy ? "Sim (virou Estudo)" : "Sim"}</Text>
+              </TouchableOpacity>
+              {!isStudy && !revisitaEnabled && <Text>Não</Text>}
+            </View>
+
+            {(revisitaEnabled || isStudy) && (
+              <View className="gap-y-[10px] p-[10px] border border-[#ddd] rounded-lg">
+                <Text className="font-semibold text-base mb-1">
+                  {isStudy ? "Dados do Estudo" : "Dados da Revisita"}
+                </Text>
+
+                <Labeled
+                  label={`${
+                    isStudy ? "Nome do estudante *" : "Nome do morador *"
+                  }`}
+                >
+                  <Input
+                    value={isStudy ? estNome : nome}
+                    onChangeText={isStudy ? setEstNome : setNome}
+                    onBlur={() => {
+                      const key = isStudy ? "estNome" : "nome";
+                      setTouched((tt) => ({ ...tt, [key]: true }));
+                      validateField(key, (values as any)[key]);
+                    }}
+                    returnKeyType="next"
+                    error={
+                      (isStudy ? touched.estNome : touched.nome)
+                        ? isStudy
+                          ? errors.estNome
+                          : errors.nome
+                        : undefined
+                    }
+                  />
+                </Labeled>
+
+                <Labeled label="Número da casa *">
+                  <Input
+                    value={isStudy ? estNumeroCasa : numeroCasa}
+                    onChangeText={isStudy ? setEstNumeroCasa : setNumeroCasa}
+                    onBlur={() => {
+                      const key = isStudy ? "estNumeroCasa" : "numeroCasa";
+                      setTouched((tt) => ({ ...tt, [key]: true }));
+                      validateField(key, (values as any)[key]);
+                    }}
+                    inputMode="numeric"
+                    returnKeyType="next"
+                    error={
+                      (isStudy ? touched.estNumeroCasa : touched.numeroCasa)
+                        ? isStudy
+                          ? errors.estNumeroCasa
+                          : errors.numeroCasa
+                        : undefined
+                    }
+                  />
+                </Labeled>
+
+                <Labeled
+                  label={`${
+                    isStudy ? "Celular do estudante" : "Celular (opcional)"
+                  }`}
+                >
+                  <Input
+                    value={isStudy ? estCelular : celular}
+                    onChangeText={isStudy ? setEstCelular : setCelular}
+                    inputMode="tel"
+                    returnKeyType="next"
+                  />
+                </Labeled>
+
+                <Labeled
+                  label={`${
+                    isStudy
+                      ? "Dia do estudo * (dd/MM/yyyy)"
+                      : "Data combinada * (dd/MM/yyyy)"
+                  }`}
+                >
+                  <DatePicker
+                    value={isStudy ? estDiaIso : dataRevIso}
+                    onChange={(v) => {
+                      const key = isStudy ? "estDiaIso" : "dataRevIso";
+                      if (!touched[key])
+                        setTouched((tt) => ({ ...tt, [key]: true }));
+                      if (isStudy) setEstDiaIso(v);
+                      else setDataRevIso(v);
+                      validateField(key, v);
+                    }}
+                  />
+                </Labeled>
+                {(isStudy ? touched.estDiaIso : touched.dataRevIso) &&
+                (isStudy ? errors.estDiaIso : errors.dataRevIso) ? (
+                  <Text className="text-red-600 mt-1 text-xs">
+                    {(isStudy ? errors.estDiaIso : errors.dataRevIso) as string}
+                  </Text>
+                ) : null}
+
+                <Labeled
+                  label={`${
+                    isStudy
+                      ? "Horário do estudo * (HH:mm)"
+                      : "Horário combinado * (HH:mm)"
+                  }`}
+                >
+                  <Input
+                    value={isStudy ? estHorario : horaRev}
+                    onChangeText={isStudy ? setEstHorario : setHoraRev}
+                    onBlur={() => {
+                      const key = isStudy ? "estHorario" : "horaRev";
+                      setTouched((tt) => ({ ...tt, [key]: true }));
+                      validateField(key, (values as any)[key]);
+                    }}
+                    placeholder="14:30"
+                    keyboardType="numbers-and-punctuation"
+                    autoCapitalize="none"
+                    returnKeyType="next"
+                    error={
+                      (isStudy ? touched.estHorario : touched.horaRev)
+                        ? isStudy
+                          ? errors.estHorario
+                          : errors.horaRev
+                        : undefined
+                    }
+                  />
+                </Labeled>
+
+                <Labeled label="Endereço (opcional)">
+                  <Input
+                    value={isStudy ? estEndereco : endereco}
+                    onChangeText={isStudy ? setEstEndereco : setEndereco}
+                    placeholder="Rua, nº, bairro..."
+                    returnKeyType="next"
+                  />
+                </Labeled>
+
+                {isStudy && (
+                  <Labeled label='Material do estudo (opcional) — ex.: "Seja Feliz para Sempre"'>
+                    <Input
+                      value={estMaterial}
+                      onChangeText={setEstMaterial}
+                      placeholder="Publicação/material"
+                      returnKeyType="done"
+                    />
+                  </Labeled>
+                )}
+              </View>
+            )}
+
+            <Button title="Salvar" variant="primary" onPress={handleSave} />
+          </View>
+        </ScrollView>
+      </TouchableWithoutFeedback>
+    </KeyboardAvoidingView>
   );
 }
